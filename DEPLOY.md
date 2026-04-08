@@ -23,7 +23,7 @@ docker run --gpus all \
   youruser/guildclaw:latest
 ```
 
-- **Model Hub:** `http://localhost:8080/?token=<GUILDCLAW_HUB_TOKEN>` (если токен задан; иначе UI без query).
+- **Model Hub:** `http://localhost:8080/?token=<GUILDCLAW_HUB_TOKEN>` (если токен задан; иначе без query). Интерфейс: вкладки **Пресеты** (поиск + фильтр по категории), **HuggingFace** (прямая ссылка или `repo` + имя файла + ветка), **Мои модели** (активация / удаление).
 - **OpenClaw UI:** `http://localhost:18789/?token=<OPENCLAW_WEB_PASSWORD>`
 - **LLM API:** `http://localhost:8000/v1`
 
