@@ -1,6 +1,6 @@
 {
   "name": "guildclaw",
-  "imageName": "YOUR_DOCKERHUB_USER/guildclaw:latest",
+  "imageName": "smyshnikof/guildclaw:latest",
   "containerDiskInGb": 50,
   "env": [
     {
