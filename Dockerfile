@@ -7,6 +7,9 @@ LABEL org.opencontainers.image.description="Guildclaw: OpenClaw + llama.cpp GGUF
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HF_HOME=/workspace/huggingface
 ENV OPENCLAW_WORKSPACE=/workspace/openclaw
+# nvcc должен быть в PATH на этапе cmake (GGML_CUDA).
+ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -19,13 +22,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-# llama-server с CUDA (архитектуры для большинства потребительских GPU; при необходимости пересоберите образ).
+# llama-server с CUDA. Без sm_100: в CUDA 12.4 nvcc его обычно не поддерживает — cmake падает на enable_language(CUDA).
+# Для Blackwell пересоберите с базой CUDA 12.8+ и, например: --build-arg CMAKE_CUDA_ARCHS="90;100"
 ARG LLAMA_CPP_REF=b8295
+ARG CMAKE_CUDA_ARCHS=75;80;86;89;90
 RUN git clone --depth 1 --branch "${LLAMA_CPP_REF}" https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp \
     && cd /tmp/llama.cpp \
     && cmake -B build -G Ninja \
         -DGGML_CUDA=ON \
-        -DCMAKE_CUDA_ARCHITECTURES="75;80;86;89;90;100" \
+        -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+        -DCMAKE_CUDA_ARCHITECTURES="${CMAKE_CUDA_ARCHS}" \
         -DLLAMA_BUILD_TESTS=OFF \
         -DCMAKE_BUILD_TYPE=Release \
     && cmake --build build -j 2 --target llama-server \
