@@ -9,7 +9,7 @@
 
 ## Модель
 
-Локальный LLM обслуживает **vLLM** на `http://localhost:8000/v1`. Имя модели в конфиге — из переменной `SERVED_MODEL_NAME` (по умолчанию `local-coder`).
+Локальный LLM — **llama-server** (llama.cpp, GGUF) на `http://localhost:8000/v1`. Выбор и загрузка файлов — **Model Hub** на порту **8080**. Имя модели в OpenClaw — `SERVED_MODEL_NAME` (по умолчанию `local-gguf`) и запись в `/workspace/.guildclaw/active.json`.
 
 ## Безопасность
 

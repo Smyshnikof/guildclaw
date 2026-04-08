@@ -1,0 +1,47 @@
+{
+  "description": "Популярные GGUF для кода и чата (прямые ссылки на Hugging Face). Можно добавлять свои в model_hub/catalog.json.",
+  "models": [
+    {
+      "id": "qwen25-coder-7b-q4km",
+      "label": "Qwen2.5 Coder 7B Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+      "approx_gb": 4.7,
+      "tags": ["code", "chat"]
+    },
+    {
+      "id": "qwen25-coder-3b-q8",
+      "label": "Qwen2.5 Coder 3B Q8_0 (легче по VRAM)",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q8_0.gguf",
+      "approx_gb": 3.2,
+      "tags": ["code", "chat"]
+    },
+    {
+      "id": "qwen25-7b-instruct-q4km",
+      "label": "Qwen2.5 7B Instruct Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+      "approx_gb": 4.7,
+      "tags": ["chat"]
+    },
+    {
+      "id": "llama33-8b-q4km",
+      "label": "Llama 3.3 8B Instruct Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Llama-3.3-8B-Instruct-GGUF/resolve/main/Llama-3.3-8B-Instruct-Q4_K_M.gguf",
+      "approx_gb": 4.9,
+      "tags": ["chat"]
+    },
+    {
+      "id": "codegemma-2b-q4km",
+      "label": "CodeGemma 2B IT Q4_K_M (очень лёгкая)",
+      "url": "https://huggingface.co/bartowski/codegemma-2b-it-GGUF/resolve/main/codegemma-2b-it-Q4_K_M.gguf",
+      "approx_gb": 1.7,
+      "tags": ["code"]
+    },
+    {
+      "id": "mistral-7b-v0.3-q4km",
+      "label": "Mistral 7B Instruct v0.3 Q4_K_M",
+      "url": "https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+      "approx_gb": 4.1,
+      "tags": ["chat"]
+    }
+  ]
+}

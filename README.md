@@ -4,6 +4,6 @@
 
 # Guildclaw
 
-Проект **Guildclaw** — Docker-образ с **OpenClaw + vLLM** на NVIDIA GPU: и локальный `docker run`, и облако (в т.ч. RunPod).
+Проект **Guildclaw** — Docker-образ: **OpenClaw** + **llama.cpp** (`llama-server`, GGUF) + **Model Hub** (веб на `:8080`: пресеты, своя ссылка на `.gguf`, активация, удаление). NVIDIA GPU, локально или RunPod.
 
-Образ на Docker Hub по умолчанию: `<user>/guildclaw:<тег>`. Подробности — в [DEPLOY.md](DEPLOY.md).
+Образ: `<user>/guildclaw:<тег>`. Инструкции — [DEPLOY.md](DEPLOY.md).

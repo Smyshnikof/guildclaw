@@ -1,53 +1,39 @@
 #!/bin/bash
-# OpenClaw + vLLM in Docker (GPU). Без agent2go.
+# Guildclaw: OpenClaw + llama-server (GGUF) + Model Hub (:8080).
 set -e
 source /opt/openclaw/entrypoint-common.sh
 
 echo "============================================"
-echo "  Guildclaw — OpenClaw + vLLM"
+echo "  Guildclaw — OpenClaw + llama.cpp (GGUF)"
 echo "============================================"
 
-MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-Coder-7B-Instruct}"
-SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-local-coder}"
-VLLM_API_KEY="${VLLM_API_KEY:-changeme}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-16384}"
-GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.90}"
-TOOL_CALL_PARSER="${TOOL_CALL_PARSER:-hermes}"
-TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-auto}"
-HF_HOME="${HF_HOME:-/workspace/huggingface}"
+LLAMA_API_KEY="${LLAMA_API_KEY:-${VLLM_API_KEY:-changeme}}"
 OPENCLAW_WEB_PASSWORD="${OPENCLAW_WEB_PASSWORD:-${A2GO_AUTH_TOKEN:-changeme}}"
 OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-$HOME/.openclaw}"
+HF_HOME="${HF_HOME:-/workspace/huggingface}"
+SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-local-gguf}"
+LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-8192}"
+LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-99}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
-export OPENCLAW_WEB_PASSWORD
-export HF_HOME
-export OPENCLAW_STATE_DIR
+STATE_DIR=/workspace/.guildclaw
+ACTIVE_FILE="$STATE_DIR/active.json"
+LLAMA_PID_FILE=/tmp/guildclaw-llama.pid
+GGUF_DIR=/workspace/models/gguf
+
+export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS
 
 oc_create_path_symlinks
 
 BOT_CMD="openclaw"
 
 mkdir -p "$HF_HOME" "$OPENCLAW_STATE_DIR" "$OPENCLAW_STATE_DIR/agents/main/sessions" \
-    "$OPENCLAW_STATE_DIR/credentials" /workspace/openclaw
+    "$OPENCLAW_STATE_DIR/credentials" /workspace/openclaw "$STATE_DIR" "$GGUF_DIR"
 chmod 700 "$OPENCLAW_STATE_DIR" "$OPENCLAW_STATE_DIR/agents" "$OPENCLAW_STATE_DIR/agents/main" \
     "$OPENCLAW_STATE_DIR/agents/main/sessions" "$OPENCLAW_STATE_DIR/credentials" 2>/dev/null || true
 
-if [ "$TENSOR_PARALLEL_SIZE" = "auto" ]; then
-    GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo "1")
-    TENSOR_PARALLEL_SIZE=$GPU_COUNT
-fi
-
-echo "Configuration:"
-echo "  Model: $MODEL_NAME"
-echo "  Served as: $SERVED_MODEL_NAME"
-echo "  Max context: $MAX_MODEL_LEN"
-echo "  GPU utilization: $GPU_MEMORY_UTILIZATION"
-echo "  Tensor parallel: $TENSOR_PARALLEL_SIZE"
-echo "  Tool parser: $TOOL_CALL_PARSER"
-echo ""
-
 if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
-    echo "Creating OpenClaw configuration..."
+    echo "Creating OpenClaw configuration (local-llama / llama.cpp)..."
 
     if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
         TELEGRAM_CONFIG="\"telegram\": { \"enabled\": true, \"botToken\": \"${TELEGRAM_BOT_TOKEN}\" }"
@@ -59,20 +45,20 @@ if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
 {
   "agents": {
     "defaults": {
-      "model": { "primary": "local-vllm/${SERVED_MODEL_NAME}" },
+      "model": { "primary": "local-llama/${SERVED_MODEL_NAME}" },
       "workspace": "/workspace/openclaw"
     }
   },
   "models": {
     "providers": {
-      "local-vllm": {
+      "local-llama": {
         "baseUrl": "http://localhost:8000/v1",
-        "apiKey": "${VLLM_API_KEY}",
+        "apiKey": "${LLAMA_API_KEY}",
         "api": "openai-completions",
         "models": [{
           "id": "${SERVED_MODEL_NAME}",
-          "name": "Local vLLM model",
-          "contextWindow": ${MAX_MODEL_LEN},
+          "name": "Local GGUF (llama.cpp)",
+          "contextWindow": ${LLAMA_CTX_SIZE},
           "maxTokens": 4096,
           "reasoning": false,
           "input": ["text"],
@@ -93,50 +79,71 @@ if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
 }
 EOF
     chmod 600 "$OPENCLAW_STATE_DIR/openclaw.json"
-    echo "Config created. Telegram token: ${TELEGRAM_BOT_TOKEN:+provided}${TELEGRAM_BOT_TOKEN:-NOT SET}"
+    echo "Config created. Затем выберите GGUF в Model Hub (порт 8080) и нажмите «Активировать»."
 else
-    echo "Existing config found at $OPENCLAW_STATE_DIR/openclaw.json — preserving it"
+    echo "Existing config found at $OPENCLAW_STATE_DIR/openclaw.json — preserving (синхронизируем id модели при необходимости)"
 fi
 
+python3 /opt/guildclaw/sync_openclaw_llama.py || true
 oc_sync_gateway_auth "token"
 
-VLLM_CMD="vllm serve $MODEL_NAME"
-VLLM_CMD+=" --host 0.0.0.0 --port 8000"
-VLLM_CMD+=" --max-model-len $MAX_MODEL_LEN"
-VLLM_CMD+=" --gpu-memory-utilization $GPU_MEMORY_UTILIZATION"
-VLLM_CMD+=" --served-model-name $SERVED_MODEL_NAME"
-VLLM_CMD+=" --api-key $VLLM_API_KEY"
-VLLM_CMD+=" --enable-auto-tool-choice"
-VLLM_CMD+=" --tool-call-parser $TOOL_CALL_PARSER"
+echo "Starting Model Hub on :8080..."
+cd /opt/guildclaw
+python3 -m uvicorn model_hub.app:app --host 0.0.0.0 --port 8080 &
+HUB_PID=$!
 
-if [ "$TENSOR_PARALLEL_SIZE" -gt 1 ]; then
-    VLLM_CMD+=" --tensor-parallel-size $TENSOR_PARALLEL_SIZE"
-fi
+llama_supervisor() {
+    set +e
+    while true; do
+        if [ -f "$ACTIVE_FILE" ]; then
+            GGUF=$(jq -r .path "$ACTIVE_FILE" 2>/dev/null || echo "")
+            SID=$(jq -r '.served_id // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
+            [ -n "$SID" ] || SID="$SERVED_MODEL_NAME"
+            if [ -n "$GGUF" ] && [ -f "$GGUF" ]; then
+                echo "Starting llama-server: $GGUF (alias: $SID)"
+                python3 /opt/guildclaw/sync_openclaw_llama.py || true
+                # shellcheck disable=SC2086
+                llama-server \
+                    -m "$GGUF" \
+                    --host 0.0.0.0 \
+                    --port 8000 \
+                    --api-key "$LLAMA_API_KEY" \
+                    -c "$LLAMA_CTX_SIZE" \
+                    -ngl "$LLAMA_N_GPU_LAYERS" \
+                    --jinja \
+                    --alias "$SID" \
+                    $LLAMA_SERVER_EXTRA_ARGS &
+                echo $! > "$LLAMA_PID_FILE"
+                wait "$(cat "$LLAMA_PID_FILE")"
+                echo "llama-server exited (код $?), перезапуск через 2s..."
+                sleep 2
+            else
+                echo "В active.json указан файл, которого нет на диске. Ждём..."
+                sleep 6
+            fi
+        else
+            echo "Нет активной модели. Откройте http://localhost:8080 (или :8080 на RunPod) и скачайте/активируйте .gguf"
+            sleep 8
+        fi
+    done
+}
 
-echo "Starting vLLM server..."
-echo "Command: $VLLM_CMD"
-echo ""
+llama_supervisor &
+LLAMA_SUP_PID=$!
 
-$VLLM_CMD &
-VLLM_PID=$!
-
-echo "Waiting for vLLM to start..."
-MAX_WAIT=300
+echo "Ожидание llama-server (если модель уже активирована)..."
+MAX_WAIT=360
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
-    if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-        echo "vLLM is ready!"
+    if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+        echo "llama-server отвечает на /health"
         break
     fi
-    sleep 5
-    WAITED=$((WAITED + 5))
-    echo "  Waiting... ($WAITED/${MAX_WAIT}s)"
+    sleep 2
+    WAITED=$((WAITED + 2))
 done
 
-if [ $WAITED -ge $MAX_WAIT ]; then
-    echo "ERROR: vLLM failed to start within ${MAX_WAIT} seconds"
-    exit 1
-fi
+python3 /opt/guildclaw/sync_openclaw_llama.py || true
 
 echo ""
 echo "Starting OpenClaw gateway..."
@@ -144,14 +151,24 @@ echo "Starting OpenClaw gateway..."
 GATEWAY_PID=$!
 
 echo ""
-oc_print_ready "vLLM API" "$SERVED_MODEL_NAME" "$MAX_MODEL_LEN tokens" "token"
+oc_print_ready "LLM API (llama.cpp)" "$SERVED_MODEL_NAME" "${LLAMA_CTX_SIZE} ctx" "token"
+echo "  Model Hub: http://localhost:8080"
+if [ -n "${RUNPOD_POD_ID:-}" ]; then
+    echo "  Model Hub (RunPod proxy): https://${RUNPOD_POD_ID}-8080.proxy.runpod.net/"
+fi
 echo ""
 
-trap "kill $VLLM_PID $GATEWAY_PID 2>/dev/null; exit 0" SIGTERM SIGINT
+cleanup() {
+    kill "$HUB_PID" "$GATEWAY_PID" "$LLAMA_SUP_PID" 2>/dev/null || true
+    if [ -f "$LLAMA_PID_FILE" ]; then
+        kill "$(cat "$LLAMA_PID_FILE")" 2>/dev/null || true
+    fi
+}
 
-wait -n $VLLM_PID $GATEWAY_PID
+trap 'cleanup; exit 0' SIGTERM SIGINT
+
+wait "$GATEWAY_PID"
 EXIT_CODE=$?
-
-echo "A process exited with code $EXIT_CODE"
-kill $VLLM_PID $GATEWAY_PID 2>/dev/null || true
-exit $EXIT_CODE
+echo "OpenClaw gateway завершился (код $EXIT_CODE)"
+cleanup
+exit "$EXIT_CODE"

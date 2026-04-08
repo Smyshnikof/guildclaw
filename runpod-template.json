@@ -4,7 +4,7 @@
   "containerDiskInGb": 50,
   "env": [
     {
-      "key": "VLLM_API_KEY",
+      "key": "LLAMA_API_KEY",
       "value": ""
     },
     {
@@ -12,12 +12,20 @@
       "value": ""
     },
     {
-      "key": "MODEL_NAME",
-      "value": "Qwen/Qwen2.5-Coder-7B-Instruct"
+      "key": "GUILDCLAW_HUB_TOKEN",
+      "value": ""
     },
     {
       "key": "SERVED_MODEL_NAME",
-      "value": "local-coder"
+      "value": "local-gguf"
+    },
+    {
+      "key": "LLAMA_CTX_SIZE",
+      "value": "8192"
+    },
+    {
+      "key": "LLAMA_N_GPU_LAYERS",
+      "value": "99"
     },
     {
       "key": "HF_TOKEN",
