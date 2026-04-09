@@ -29,8 +29,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && node --version && npm --version
 
-# Бинарь в апстрим-образе лежит в /app; в PATH — как раньше для entrypoint.sh и pkill -x llama-server
-RUN ln -sf /app/llama-server /usr/local/bin/llama-server
+# Бинарь и *.so (libmtmd, ggml-cuda и др.) лежат в /app у ggml-org; иначе при запуске из PATH — «libmtmd.so.0: not found».
+ENV LLAMA_SERVER_BIN=/app/llama-server
+RUN ln -sf /app/llama-server /usr/local/bin/llama-server \
+    && printf '%s\n' /app >> /etc/ld.so.conf.d/llama-ggml.conf \
+    && if [ -d /app/lib ]; then printf '%s\n' /app/lib >> /etc/ld.so.conf.d/llama-ggml.conf; fi \
+    && ldconfig
 
 ARG OPENCLAW_VERSION=latest
 RUN npm install -g "openclaw@${OPENCLAW_VERSION}"

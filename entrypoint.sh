@@ -23,6 +23,14 @@ GGUF_DIR=/workspace/models/gguf
 
 export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS
 
+# ggml-org: libmtmd.so и др. лежат в /app; без этого — «error while loading shared libraries: libmtmd.so.0»
+LLAMA_SERVER_BIN="${LLAMA_SERVER_BIN:-/app/llama-server}"
+if [ -d /app/lib ]; then
+    export LD_LIBRARY_PATH="/app/lib:/app${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+elif [ -d /app ]; then
+    export LD_LIBRARY_PATH="/app${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
 oc_create_path_symlinks
 
 BOT_CMD="openclaw"
@@ -103,7 +111,7 @@ llama_supervisor() {
                 echo "Starting llama-server: $GGUF (alias: $SID)"
                 python3 /opt/guildclaw/sync_openclaw_llama.py || true
                 # shellcheck disable=SC2086
-                llama-server \
+                "$LLAMA_SERVER_BIN" \
                     -m "$GGUF" \
                     --host 0.0.0.0 \
                     --port 8000 \
