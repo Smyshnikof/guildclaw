@@ -82,7 +82,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `GUILDCLAW_BOOTSTRAP_GGUF` | `1` (по умолчанию): если нет валидного `active.json`, скачать дефолтный GGUF и активировать. `0` — только Hub вручную |
 | `GUILDCLAW_DEFAULT_GGUF_URL` | URL дефолтного `.gguf` (по умолчанию Gemma 4 E4B Q4_K_M с HF) |
 | `GUILDCLAW_DEFAULT_GGUF_FILENAME` | Имя файла в `/workspace/models/gguf/` |
-| `TELEGRAM_BOT_TOKEN` | Опционально |
+| `TELEGRAM_BOT_TOKEN` | Токен бота от [@BotFather](https://t.me/BotFather). Можно **не** задавать при создании пода: добавьте переменную в RunPod (**Edit pod → Environment** или шаблон), **перезапустите под** — при старте токен **допишется** в `channels.telegram` внутри `$OPENCLAW_STATE_DIR/openclaw.json` (обычно `/workspace/.openclaw/`). Вручную: тот же файл, ключ `channels.telegram.botToken`, `enabled: true`. Если в конфиге у `telegram` стоит `"enabled": false`, автозапись токена пропускается (чтобы не включать канал против воли); форс: **`GUILDCLAW_TELEGRAM_FORCE=1`**. |
 | `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` | Доп. origin для Control UI (через запятую), если заходите не с RunPod-прокси |
 | `OPENCLAW_CONTROL_UI_ALLOW_ANY` | `1` / `true` — `allowedOrigins: ["*"]` (проще, но слабее с точки зрения безопасности) |
 

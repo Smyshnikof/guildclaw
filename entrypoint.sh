@@ -194,6 +194,39 @@ guildclaw_bootstrap_default_gguf() {
 python3 /opt/guildclaw/sync_openclaw_llama.py || true
 oc_sync_gateway_auth "token"
 
+# TELEGRAM_BOT_TOKEN можно задать позже в RunPod: при каждом старте дописываем в уже существующий openclaw.json.
+guildclaw_sync_telegram_token() {
+    [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && return 0
+    local cfg="${OPENCLAW_STATE_DIR}/openclaw.json"
+    [ -f "$cfg" ] || return 0
+    python3 - <<'PY'
+import json
+import os
+
+cfg = os.path.join(os.environ["OPENCLAW_STATE_DIR"], "openclaw.json")
+tok = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+if not tok:
+    raise SystemExit(0)
+with open(cfg, "r", encoding="utf-8") as f:
+    data = json.load(f)
+ch = data.setdefault("channels", {}).setdefault("telegram", {})
+if ch.get("enabled") is False and not os.environ.get("GUILDCLAW_TELEGRAM_FORCE"):
+    raise SystemExit(0)
+old = ch.get("botToken")
+ch["enabled"] = True
+ch["botToken"] = tok
+if old != tok:
+    with open(cfg, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    try:
+        os.chmod(cfg, 0o600)
+    except OSError:
+        pass
+    print("Guildclaw: TELEGRAM_BOT_TOKEN записан в channels.telegram (openclaw.json).")
+PY
+}
+guildclaw_sync_telegram_token
+
 echo "Starting Model Hub on :8080..."
 cd /opt/guildclaw
 python3 -m uvicorn model_hub.app:app --host 0.0.0.0 --port 8080 &
