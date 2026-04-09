@@ -8,6 +8,17 @@ import sys
 from pathlib import Path
 
 
+def _llama_api_key() -> str:
+    """LLAMA_API_KEY из Dockerfile часто changeme; тогда берём VLLM_API_KEY (совместимость RunPod)."""
+    k = (os.environ.get("LLAMA_API_KEY") or "").strip()
+    if k and k != "changeme":
+        return k
+    v = (os.environ.get("VLLM_API_KEY") or "").strip()
+    if v and v != "changeme":
+        return v
+    return k or v or "changeme"
+
+
 def main() -> int:
     cfg_dir = os.environ.get("OPENCLAW_STATE_DIR", str(Path.home() / ".openclaw"))
     cfg_path = Path(cfg_dir) / "openclaw.json"
@@ -38,7 +49,7 @@ def main() -> int:
         .setdefault("local-llama", {})
     )
     prov["baseUrl"] = "http://localhost:8000/v1"
-    prov["apiKey"] = os.environ.get("LLAMA_API_KEY", os.environ.get("VLLM_API_KEY", "changeme"))
+    prov["apiKey"] = _llama_api_key()
     prov["api"] = "openai-completions"
     models = prov.setdefault("models", [])
     if not models:

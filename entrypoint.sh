@@ -7,7 +7,11 @@ echo "============================================"
 echo "  Guildclaw — OpenClaw + llama.cpp (GGUF)"
 echo "============================================"
 
+# В образе задан LLAMA_API_KEY=changeme — тогда ${LLAMA_API_KEY:-$VLLM} не подхватывает VLLM_API_KEY; явно мержим.
 LLAMA_API_KEY="${LLAMA_API_KEY:-${VLLM_API_KEY:-changeme}}"
+if [ "$LLAMA_API_KEY" = "changeme" ] && [ -n "${VLLM_API_KEY:-}" ] && [ "$VLLM_API_KEY" != "changeme" ]; then
+    LLAMA_API_KEY="$VLLM_API_KEY"
+fi
 OPENCLAW_WEB_PASSWORD="${OPENCLAW_WEB_PASSWORD:-${A2GO_AUTH_TOKEN:-changeme}}"
 OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-$HOME/.openclaw}"
 HF_HOME="${HF_HOME:-/workspace/huggingface}"

@@ -73,7 +73,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `GUILDCLAW_DEFAULT_GGUF_FILENAME` | Имя файла в `/workspace/models/gguf/` |
 | `TELEGRAM_BOT_TOKEN` | Опционально |
 
-Совместимость: **`VLLM_API_KEY`** в окружении всё ещё подхватывается как **`LLAMA_API_KEY`**, если последний не задан.
+Совместимость: если в образе **`LLAMA_API_KEY=changeme`**, а вы задали только **`VLLM_API_KEY`** (как в старых шаблонах), он **подставится** и в llama-server, и в `openclaw.json` после синка. Явно задайте **`LLAMA_API_KEY`**, если нужен отдельный ключ только для LLM API.
 
 ### URL на RunPod
 
