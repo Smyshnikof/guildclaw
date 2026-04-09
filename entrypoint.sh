@@ -32,6 +32,14 @@ case "${LLAMA_CTX_SIZE}" in
         ;;
 esac
 LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-99}"
+# Буфер компакции чата OpenClaw (иначе «Context limit exceeded… reserveTokensFloor»).
+OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR="${OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR:-20000}"
+case "${OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR}" in
+    ''|*[!0-9]*) OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR=20000 ;;
+esac
+if [ "$OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR" -lt 20000 ]; then
+    OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR=20000
+fi
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
 STATE_DIR=/workspace/.guildclaw
@@ -40,7 +48,7 @@ ACTIVE_FILE="$STATE_DIR/active.json"
 LLAMA_PID_FILE=/tmp/guildclaw-llama.pid
 GGUF_DIR=/workspace/models/gguf
 
-export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS
+export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR
 
 # ggml-org: libmtmd.so и др. лежат в /app; без этого — «error while loading shared libraries: libmtmd.so.0»
 LLAMA_SERVER_BIN="${LLAMA_SERVER_BIN:-/app/llama-server}"
@@ -73,7 +81,10 @@ if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
   "agents": {
     "defaults": {
       "model": { "primary": "local-llama/${SERVED_MODEL_NAME}" },
-      "workspace": "/workspace/openclaw"
+      "workspace": "/workspace/openclaw",
+      "compaction": {
+        "reserveTokensFloor": ${OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR}
+      }
     }
   },
   "models": {

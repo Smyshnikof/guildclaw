@@ -24,7 +24,7 @@ docker run --gpus all \
 ```
 
 - **Model Hub:** `http://localhost:8080/?token=<GUILDCLAW_HUB_TOKEN>` (если токен задан; иначе без query). Токен Hub и опционально HF можно **сохранить в браузере** (блок «Токены» или страница входа при 401) — как в Control UI, без вечного `?token=` в закладке. Интерфейс: вкладки **Пресеты**, **HuggingFace**, **Мои GGUF** (активация / удаление).
-- **Pairing dashboard:** `http://localhost:8081/?token=<секрет>` — одобрение/отклонение **node pairing** через шлюз (`node.pair.list` / `approve` / `reject`). Секрет: **`GUILDCLAW_PAIRING_DASH_TOKEN`**, если задан; иначе используется **`OPENCLAW_WEB_PASSWORD`**. WS-handshake с **Ed25519 device** (файл **`$GUILDCLAW_STATE_DIR/pairing_ws_device.json`**, иначе **`/workspace/.guildclaw/`**), иначе шлюз OpenClaw обнуляет scopes и будет «missing scope: operator.pairing». Пока шлюз не поднят, страница покажет ошибку подключения.
+- **Pairing dashboard (:8081):** только **node pairing** (удалённые ноды OpenClaw). Очередь **device** (браузер, CLI, ключ `pairing_ws_device.json`) — через **OpenClaw UI :18789** или `openclaw devices …`, не через :8081. Два paired operator (браузер + сервис :8081) — обычно нормально. Секрет: **`GUILDCLAW_PAIRING_DASH_TOKEN`**, если задан; иначе используется **`OPENCLAW_WEB_PASSWORD`**. WS-handshake с **Ed25519 device** (файл **`$GUILDCLAW_STATE_DIR/pairing_ws_device.json`**, иначе **`/workspace/.guildclaw/`**), иначе шлюз OpenClaw обнуляет scopes и будет «missing scope: operator.pairing». Пока шлюз не поднят, страница покажет ошибку подключения.
 - **OpenClaw UI:** `http://localhost:18789/?token=<OPENCLAW_WEB_PASSWORD>`
 - **LLM API:** `http://localhost:8000/v1`
 - **JupyterLab:** `http://localhost:8888/lab` — при заданном токене: `…/lab?token=<секрет>`. Токен: **`GUILDCLAW_JUPYTER_TOKEN`**, иначе подставляется **`ACCESS_PASSWORD`** (как в шаблоне ComfyUI/RunPod). Отключить: **`GUILDCLAW_JUPYTER=0`**. Рабочая директория по умолчанию: **`/workspace`**. Лог: `/workspace/logs/jupyterlab.log`.
@@ -74,6 +74,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `SERVED_MODEL_NAME` | Явный **alias** в API/OpenClaw; значение **`local-gguf`** (по умолчанию) значит *авто*: id строится из имени файла как `local-<slug>-gguf` (например `gemma-4-E4B-it-Q4_K_M.gguf` → `local-gemma-4-e4b-it-q4-k-m-gguf`). Любой другой непустой текст — зафиксированный id |
 | `LLAMA_CTX_SIZE` | Размер контекста для **llama-server** (`-c`) и поля `contextWindow` в OpenClaw (по умолчанию **16384**). Значения **ниже 16000** автоматически поднимаются до **16000**: иначе агент OpenClaw падает с «Model context window too small … Minimum is 16000». |
 | `OPENCLAW_AGENT_MIN_CTX` | Нижняя граница для clamp (по умолчанию `16000`); менять только если апстрим OpenClaw изменит требование |
+| `OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR` | Минимум зарезервированных токенов под компакцию диалога в `agents.defaults.compaction.reserveTokensFloor` (по умолчанию **20000**). Меньше — OpenClaw может сбрасывать чат с «Context limit exceeded…» |
 | `LLAMA_N_GPU_LAYERS` | Слоёв на GPU (99 ≈ максимум доступных) |
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |

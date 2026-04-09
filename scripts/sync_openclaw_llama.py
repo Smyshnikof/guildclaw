@@ -14,6 +14,28 @@ def _guildclaw_root() -> Path:
     return p if (p / "model_hub").is_dir() else p.parent
 
 
+def _compaction_reserve_floor() -> int:
+    """OpenClaw: при малом буфере чат сбрасывается («reserveTokensFloor» ≥ 20000)."""
+    raw = (os.environ.get("OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR") or "20000").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 20000
+    return max(n, 20000)
+
+
+def _ensure_compaction_reserve(data: dict) -> None:
+    target = _compaction_reserve_floor()
+    agents_def = data.setdefault("agents", {}).setdefault("defaults", {})
+    compaction = agents_def.setdefault("compaction", {})
+    cur = compaction.get("reserveTokensFloor")
+    try:
+        cur_i = int(cur)
+    except (TypeError, ValueError):
+        cur_i = 0
+    compaction["reserveTokensFloor"] = max(cur_i, target)
+
+
 def _effective_context_window() -> int:
     """OpenClaw требует contextWindow >= 16000 в описании модели; llama -c должен совпадать."""
     raw = (os.environ.get("LLAMA_CTX_SIZE") or "16384").strip()
@@ -80,6 +102,7 @@ def main() -> int:
     data.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})[
         "primary"
     ] = f"local-llama/{sid}"
+    _ensure_compaction_reserve(data)
 
     prov = (
         data.setdefault("models", {})

@@ -44,6 +44,10 @@
       "value": "99"
     },
     {
+      "key": "OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR",
+      "value": "20000"
+    },
+    {
       "key": "HF_TOKEN",
       "value": ""
     },
