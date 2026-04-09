@@ -41,12 +41,23 @@ if [ "$OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR" -lt 20000 ]; then
     OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR=20000
 fi
 # reserveTokensFloor >= contextWindow ломает компакцию OpenClaw (отрицательный порог) → сброс чата.
+# Плюс нужен запас под system/tools (precheck: promptBudgetBeforeReserve), иначе при 16k и reserve~12k бюджет ≈1 токен.
+OPENCLAW_COMPACTION_PROMPT_HEADROOM="${OPENCLAW_COMPACTION_PROMPT_HEADROOM:-12000}"
+case "${OPENCLAW_COMPACTION_PROMPT_HEADROOM}" in
+    ''|*[!0-9]*) OPENCLAW_COMPACTION_PROMPT_HEADROOM=12000 ;;
+esac
+if [ "$OPENCLAW_COMPACTION_PROMPT_HEADROOM" -lt 4096 ]; then
+    OPENCLAW_COMPACTION_PROMPT_HEADROOM=4096
+fi
 _gc_rmax=$(( LLAMA_CTX_SIZE * 72 / 100 ))
 _gc_margin=$(( LLAMA_CTX_SIZE - 4096 ))
 [ "$_gc_margin" -lt "$_gc_rmax" ] && _gc_rmax="$_gc_margin"
+_gc_headmax=$(( LLAMA_CTX_SIZE - OPENCLAW_COMPACTION_PROMPT_HEADROOM ))
+[ "$_gc_headmax" -lt 2048 ] && _gc_headmax=2048
+[ "$_gc_headmax" -lt "$_gc_rmax" ] && _gc_rmax="$_gc_headmax"
 [ "$_gc_rmax" -lt 2048 ] && _gc_rmax=2048
 if [ "$OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR" -gt "$_gc_rmax" ]; then
-    echo "WARN: OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR ($OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR) > ${_gc_rmax} при LLAMA_CTX_SIZE=$LLAMA_CTX_SIZE — ставим ${_gc_rmax} (иначе «Context limit exceeded» без нормальной компакции)."
+    echo "WARN: OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR ($OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR) > ${_gc_rmax} при LLAMA_CTX_SIZE=$LLAMA_CTX_SIZE (учтён headroom ${OPENCLAW_COMPACTION_PROMPT_HEADROOM}) — ставим ${_gc_rmax}."
     OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR="$_gc_rmax"
 fi
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
@@ -57,7 +68,7 @@ ACTIVE_FILE="$STATE_DIR/active.json"
 LLAMA_PID_FILE=/tmp/guildclaw-llama.pid
 GGUF_DIR=/workspace/models/gguf
 
-export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR
+export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR OPENCLAW_COMPACTION_PROMPT_HEADROOM
 
 # ggml-org: libmtmd.so и др. лежат в /app; без этого — «error while loading shared libraries: libmtmd.so.0»
 LLAMA_SERVER_BIN="${LLAMA_SERVER_BIN:-/app/llama-server}"

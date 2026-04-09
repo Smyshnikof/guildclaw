@@ -24,16 +24,31 @@ def _compaction_reserve_floor() -> int:
     return max(n, 20000)
 
 
+def _compaction_prompt_headroom() -> int:
+    """
+    Минимум токенов, который должен остаться под системный промпт, тулы и диалог
+    (не под резерв компакции). Иначе precheck OpenClaw даёт promptBudgetBeforeReserve≈1
+    при ctx=16k даже при «маленьком» пользовательском сообщении.
+    """
+    raw = (os.environ.get("OPENCLAW_COMPACTION_PROMPT_HEADROOM") or "12000").strip()
+    try:
+        h = int(raw)
+    except ValueError:
+        h = 12000
+    return max(h, 4096)
+
+
 def _clamp_compaction_reserve(want: int, context_window: int) -> int:
     """
     reserveTokensFloor должен быть строго меньше contextWindow, иначе порог компакции
     (contextWindow - reserve) неположительный — OpenClaw сбрасывает чат с «Context limit exceeded».
-    Апстрим клампит ~до 75% окна; берём запас.
+    Апстрим клампит ~до 75% окна; плюс оставляем headroom под system/tools (см. precheck в логах).
     """
     cw = max(int(context_window), 4096)
     cap_ratio = cw * 72 // 100
     cap_margin = cw - 4096
-    cap = min(cap_ratio, cap_margin)
+    cap_head = cw - _compaction_prompt_headroom()
+    cap = min(cap_ratio, cap_margin, max(cap_head, 2048))
     cap = max(cap, 2048)
     w = max(int(want), 1)
     return min(w, cap)
@@ -45,8 +60,9 @@ def _ensure_compaction_reserve(data: dict, context_window: int) -> None:
     if reserve < target:
         print(
             f"guildclaw-sync: reserveTokensFloor {target} -> {reserve} "
-            f"(contextWindow={context_window}; при 16k окне нельзя держать 20k резерва — "
-            f"поднимите LLAMA_CTX_SIZE, например 32768, если хватает VRAM)",
+            f"(contextWindow={context_window}; кламп по окну и по "
+            f"OPENCLAW_COMPACTION_PROMPT_HEADROOM={_compaction_prompt_headroom()}). "
+            f"Для reserve≈20000 поднимите LLAMA_CTX_SIZE (часто 32768, см. warn<32000 в OpenClaw).",
             file=sys.stderr,
         )
 
