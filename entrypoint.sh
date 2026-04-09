@@ -140,8 +140,6 @@ guildclaw_bootstrap_default_gguf() {
     echo "Автоактивация: $dest (served_id=$SERVED_MODEL_NAME)"
 }
 
-guildclaw_bootstrap_default_gguf
-
 python3 /opt/guildclaw/sync_openclaw_llama.py || true
 oc_sync_gateway_auth "token"
 
@@ -149,6 +147,11 @@ echo "Starting Model Hub on :8080..."
 cd /opt/guildclaw
 python3 -m uvicorn model_hub.app:app --host 0.0.0.0 --port 8080 &
 HUB_PID=$!
+
+# Hub сразу, чтобы во время долгого curl на дефолтный GGUF можно было зайти в UI
+guildclaw_bootstrap_default_gguf
+
+python3 /opt/guildclaw/sync_openclaw_llama.py || true
 
 llama_supervisor() {
     set +e
