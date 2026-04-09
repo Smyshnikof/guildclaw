@@ -80,6 +80,18 @@ fi
 
 oc_create_path_symlinks
 
+# Лаунчер Mate: в PATH и в /workspace (интерактивный shell часто без образного symlink в PATH).
+guildclaw_install_mate_launcher() {
+    local py=/opt/guildclaw/scripts/guildclaw_mate.py
+    [ -f "$py" ] || return 0
+    chmod +x "$py" 2>/dev/null || true
+    for dest in /usr/local/bin/guildclaw-mate /workspace/guildclaw-mate; do
+        printf '%s\n' '#!/bin/sh' "exec python3 $py \"\$@\"" >"$dest"
+        chmod +x "$dest"
+    done
+}
+guildclaw_install_mate_launcher
+
 BOT_CMD="openclaw"
 
 mkdir -p "$HF_HOME" "$OPENCLAW_STATE_DIR" "$OPENCLAW_STATE_DIR/agents/main/sessions" \

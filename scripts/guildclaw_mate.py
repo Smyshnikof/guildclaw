@@ -19,7 +19,20 @@ from pathlib import Path
 
 
 def _state_dir() -> Path:
-    return Path(os.environ.get("OPENCLAW_STATE_DIR") or "/workspace/.openclaw").expanduser()
+    """
+    В shell часто задан OPENCLAW_STATE_DIR=/root/.openclaw → это symlink на /workspace/.openclaw.
+    Показываем канонический путь (.resolve()), чтобы не путать пользователя.
+    """
+    raw = (os.environ.get("OPENCLAW_STATE_DIR") or "").strip()
+    if raw:
+        base = Path(raw).expanduser()
+    else:
+        w = Path("/workspace/.openclaw")
+        base = w if w.is_dir() else (Path.home() / ".openclaw")
+    try:
+        return base.resolve()
+    except OSError:
+        return base
 
 
 def _workspace() -> Path:
@@ -75,10 +88,16 @@ def cmd_info(_: argparse.Namespace) -> int:
     print(f"  GUILDCLAW_PAIRING_DASH_TOKEN:   {_mask(pair)}")
     print(f"  TELEGRAM_BOT_TOKEN (env):       {_mask(tg_env)}\n")
 
-    print("Команды:")
-    print("  guildclaw-mate doctor     — проверить порты и конфиг")
-    print("  guildclaw-mate telegram   — токен бота в openclaw.json")
-    print("  guildclaw-mate oc …       — то же, что openclaw …")
+    print("Как запускать (любой один вариант):")
+    print("  guildclaw-mate doctor")
+    print("  ./guildclaw-mate doctor          # из каталога /workspace, если есть лаунчер")
+    print("  python3 /opt/guildclaw/scripts/guildclaw_mate.py doctor")
+    print("  python3 ./guildclaw_mate.py doctor   # если скопировали .py в текущую папку")
+    print("")
+    print("Подкоманды:")
+    print("  doctor   — порты и openclaw.json")
+    print("  telegram — бот в конфиге")
+    print("  oc …     — то же, что openclaw …")
     print("  openclaw devices pending  /  openclaw nodes pending")
     return 0
 

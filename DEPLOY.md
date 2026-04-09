@@ -29,7 +29,7 @@ docker run --gpus all \
 - **LLM API:** `http://localhost:8000/v1`
 - **JupyterLab:** `http://localhost:8888/lab` — при заданном токене: `…/lab?token=<секрет>`. Токен: **`GUILDCLAW_JUPYTER_TOKEN`**, иначе подставляется **`ACCESS_PASSWORD`** (как в шаблоне ComfyUI/RunPod). Отключить: **`GUILDCLAW_JUPYTER=0`**. Рабочая директория по умолчанию: **`/workspace`**. Лог: `/workspace/logs/jupyterlab.log`. В области агента лежит ноутбук **`openclaw/Guildclaw_Mate.ipynb`** — те же проверки, что у **`guildclaw-mate`**, по ячейкам.
 
-**Guildclaw Mate** (в контейнере): команда **`guildclaw-mate`** — подсказки для новичков. По умолчанию переходит в **`/workspace`** (можно **`--cwd /`** для корня ФС). Подкоманды: **`info`** (пути, ссылки RunPod, маскированные токены), **`doctor`** (проверка :8080/:8081/:8000 и `openclaw.json`), **`telegram`** (статус бота в конфиге), **`oc …`** — проброс в **`openclaw`** (например `guildclaw-mate oc devices pending`). Без аргументов выполняется **`info`**.
+**Guildclaw Mate** (в контейнере): **`guildclaw-mate`** (после старта пода также **`/workspace/guildclaw-mate`** и запись в **`PATH`**). Если команда не находится: **`python3 /opt/guildclaw/scripts/guildclaw_mate.py doctor`**. У Python аргументы идут **после имени файла**: `python3 …/guildclaw_mate.py doctor`, а не `python3 doctor`. По умолчанию **`--cwd /workspace`**. Подкоманды: **`info`**, **`doctor`**, **`telegram`**, **`oc …`**. Без аргументов — **`info`**.
 
 Порядок: зайти в Hub → скачать пресет или вставить прямой URL на `.gguf` → **Активировать** → подождать перезапуск `llama-server` → пользоваться OpenClaw. Поле `primary` в `openclaw.json` синхронизируется с активной моделью (провайдер `local-llama`, id = `SERVED_MODEL_NAME` / запись в `active.json`).
 
