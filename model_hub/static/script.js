@@ -1,6 +1,28 @@
 (function () {
+  const LS_HUB = "guildclaw_hub_token";
+  const LS_HF = "guildclaw_hf_token";
+
   const p = new URLSearchParams(location.search);
-  window.__GC_HUB = p.get("token") || "";
+  const qtok = p.get("token");
+  if (qtok) {
+    try {
+      localStorage.setItem(LS_HUB, qtok);
+    } catch (e) {}
+  }
+  try {
+    window.__GC_HUB = (qtok || localStorage.getItem(LS_HUB) || "").trim();
+  } catch (e) {
+    window.__GC_HUB = (qtok || "").trim();
+  }
+  if (qtok && window.__GC_HUB) {
+    try {
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash);
+    } catch (e) {}
+  }
+  window.__GC_LS_HUB = LS_HUB;
+  window.__GC_LS_HF = LS_HF;
 })();
 
 function gcFetchInit(extra) {
@@ -12,6 +34,121 @@ function gcFetchInit(extra) {
   }
   return o;
 }
+
+function gcHubTokenStatus() {
+  const el = document.getElementById("gc_hub_token_status");
+  if (!el) return;
+  try {
+    if (window.__GC_HUB) {
+      el.textContent = "Hub: токен активен (из ссылки или сохранён в браузере).";
+    } else {
+      el.textContent = "Hub: токен не задан — укажите, если на сервере включён GUILDCLAW_HUB_TOKEN.";
+    }
+  } catch (e) {
+    el.textContent = "";
+  }
+}
+
+function gcSaveHubToken() {
+  const inp = document.getElementById("gc_hub_token_input");
+  const v = (inp && inp.value.trim()) || "";
+  if (!v) {
+    alert("Введите токен Hub");
+    return;
+  }
+  try {
+    localStorage.setItem(window.__GC_LS_HUB, v);
+  } catch (e) {
+    alert("Не удалось сохранить (localStorage?)");
+    return;
+  }
+  window.__GC_HUB = v;
+  if (inp) inp.value = "";
+  gcHubTokenStatus();
+  if (typeof refreshGgufList === "function") refreshGgufList();
+}
+
+function gcClearHubToken() {
+  try {
+    localStorage.removeItem(window.__GC_LS_HUB);
+  } catch (e) {}
+  window.__GC_HUB = "";
+  gcHubTokenStatus();
+  if (typeof refreshGgufList === "function") refreshGgufList();
+}
+
+function gcSaveHfToken() {
+  const inp = document.getElementById("gc_hf_token_input");
+  const v = (inp && inp.value.trim()) || "";
+  if (!v) {
+    alert("Введите HF токен");
+    return;
+  }
+  try {
+    localStorage.setItem(window.__GC_LS_HF, v);
+  } catch (e) {
+    alert("Не удалось сохранить");
+    return;
+  }
+  gcPrefillHfInputs(v);
+  if (inp) inp.value = "";
+}
+
+function gcClearHfToken() {
+  try {
+    localStorage.removeItem(window.__GC_LS_HF);
+  } catch (e) {}
+  const hi = document.getElementById("gc_hf_token_input");
+  if (hi) hi.value = "";
+  const hf = document.getElementById("hf_token");
+  const hu = document.getElementById("hf_url_token");
+  if (hf) hf.value = "";
+  if (hu) hu.value = "";
+}
+
+function gcPrefillHfInputs(fromValue) {
+  const v = fromValue;
+  const hf = document.getElementById("hf_token");
+  const hu = document.getElementById("hf_url_token");
+  if (hf && v && !hf.value.trim()) hf.value = v;
+  if (hu && v && !hu.value.trim()) hu.value = v;
+}
+
+function gcLoadSavedHf() {
+  try {
+    const h = localStorage.getItem(window.__GC_LS_HF);
+    if (h) gcPrefillHfInputs(h);
+  } catch (e) {}
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  gcHubTokenStatus();
+  gcLoadSavedHf();
+  const urlForm = document.getElementById("hf-url-form");
+  if (urlForm) {
+    urlForm.addEventListener("submit", function () {
+      const u = document.getElementById("hf_url_token");
+      if (u && !u.value.trim()) {
+        try {
+          const h = localStorage.getItem(window.__GC_LS_HF);
+          if (h) u.value = h;
+        } catch (e) {}
+      }
+    });
+  }
+  const repoForm = document.getElementById("hf-repo-form");
+  if (repoForm) {
+    repoForm.addEventListener("submit", function () {
+      const u = document.getElementById("hf_token");
+      if (u && !u.value.trim()) {
+        try {
+          const h = localStorage.getItem(window.__GC_LS_HF);
+          if (h) u.value = h;
+        } catch (e) {}
+      }
+    });
+  }
+});
 
 const selectedPresets = new Set();
 let activeCategory = "all";
@@ -26,6 +163,7 @@ function switchTab(name) {
   } else if (name === "huggingface") {
     tabs[1].classList.add("active");
     document.getElementById("huggingface-tab").classList.add("active");
+    gcLoadSavedHf();
   } else if (name === "guildclaw") {
     tabs[2].classList.add("active");
     document.getElementById("guildclaw-tab").classList.add("active");
@@ -105,6 +243,10 @@ function downloadPresets() {
   progress.style.display = "block";
   const fd = new FormData();
   fd.append("presets", ids);
+  try {
+    const hf = localStorage.getItem(window.__GC_LS_HF);
+    if (hf && hf.trim()) fd.append("hf_token", hf.trim());
+  } catch (e) {}
   fetch("/download_presets", gcFetchInit({ method: "POST", body: fd }))
     .then((r) => r.json())
     .then((data) => {
@@ -166,6 +308,7 @@ function switchHFMethod(m) {
     document.getElementById("hf-url-form").style.display = "none";
     document.getElementById("hf-repo-form").style.display = "block";
   }
+  gcLoadSavedHf();
 }
 
 function escapeHtml(s) {
@@ -187,7 +330,7 @@ function refreshGgufList() {
     .then((r) => {
       if (!r.ok) {
         el.innerHTML =
-          '<p style="color:var(--muted)">Нет доступа к API. Откройте страницу с <code>?token=</code> (Hub).</p>';
+          '<p style="color:var(--muted)">Нет доступа. Укажите токен Hub в блоке «Токены» или откройте <code>?token=</code>.</p>';
         return null;
       }
       return r.json();

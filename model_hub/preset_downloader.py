@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -167,6 +169,7 @@ INDEX_HTML = """
     .category-filter.all { background: #2a2a2a; }
     .category-filter.all.active { background: var(--accent); }
     .preset-card.hidden { display: none; }
+    .hidden { display: none !important; }
     .preset-variants { margin-top: 12px; padding-top: 12px; border-top: 1px solid #3a3a3a; display: none; }
     .preset-card.expanded .preset-variants { display: block; }
     .preset-variant-group { margin-bottom: 16px; }
@@ -187,6 +190,33 @@ INDEX_HTML = """
   <div class="wrap">
     <h1 class="title">Guildclaw Model Hub</h1>
     <p class="subtitle">Пресеты только из <span class="mono">model_hub/catalog.json</span> · HuggingFace · активация llama-server / OpenClaw</p>
+
+    <div class="card" style="margin-bottom:20px;padding:16px;background:#141414;border:1px solid #333;border-radius:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('gc-token-panel').classList.toggle('hidden')">
+        <strong style="color:var(--accent)">🔑 Токены</strong>
+        <span class="mono" style="font-size:12px;color:var(--muted)">сохранение в браузере</span>
+      </div>
+      <div id="gc-token-panel" class="hidden" style="margin-top:14px">
+        <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Токен Hub (если задан <code>GUILDCLAW_HUB_TOKEN</code> на сервере) и опционально Hugging Face — хранятся только у вас в браузере.</p>
+        <div class="row" style="grid-template-columns:1fr">
+          <label for="gc_hub_token_input">Токен Model Hub</label>
+          <input id="gc_hub_token_input" type="password" autocomplete="current-password" placeholder="как в GUILDCLAW_HUB_TOKEN" style="width:100%;padding:10px 12px;background:#1a1a1a;border:1px solid #3a3a3a;color:var(--text);border-radius:8px;box-sizing:border-box"/>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-preset" onclick="gcSaveHubToken()">Сохранить Hub</button>
+            <button type="button" class="btn" style="background:#444" onclick="gcClearHubToken()">Забыть Hub</button>
+          </div>
+          <p id="gc_hub_token_status" style="font-size:12px;color:var(--muted);margin:8px 0 0"></p>
+        </div>
+        <div class="row" style="grid-template-columns:1fr;margin-top:16px">
+          <label for="gc_hf_token_input">Токен Hugging Face (опционально)</label>
+          <input id="gc_hf_token_input" type="password" autocomplete="current-password" placeholder="hf_…" style="width:100%;padding:10px 12px;background:#1a1a1a;border:1px solid #3a3a3a;color:var(--text);border-radius:8px;box-sizing:border-box"/>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-hf" onclick="gcSaveHfToken()">Сохранить HF</button>
+            <button type="button" class="btn" style="background:#444" onclick="gcClearHfToken()">Забыть HF</button>
+          </div>
+        </div>
+      </div>
+    </div>
     
     <div class="tabs">
       <div class="tab active" onclick="switchTab('presets')">🎯 Пресеты</div>
@@ -249,6 +279,10 @@ INDEX_HTML = """
             <select id="hf_url_folder" name="folder" style="width:100%; padding:12px 16px; background:#1a1a1a; border:1px solid #3a3a3a; color:var(--text); border-radius:8px;">
               <option value="gguf" selected>Каталог GGUF (GUILDCLAW_GGUF_DIR)</option>
             </select>
+          </div>
+          <div class="row">
+            <label for="hf_url_token">HF токен (если файл приватный / лимиты)</label>
+            <input id="hf_url_token" type="password" name="hf_token" placeholder="опционально, или из блока «Токены»" autocomplete="current-password" />
           </div>
           <div class="row" style="grid-template-columns:1fr;">
             <button class="btn btn-hf" type="submit">🔗 Скачать по ссылке</button>
@@ -605,11 +639,16 @@ def get_all_tasks(request: Request):
 
 
 @app.post("/download_presets")
-def download_presets(request: Request, presets: str = Form(...)):
+def download_presets(
+    request: Request,
+    presets: str = Form(...),
+    hf_token: Optional[str] = Form(None),
+):
     from .guildclaw_glue import check_hub_request
 
     check_hub_request(request)
     try:
+        effective_hf = (hf_token or "").strip() or os.environ.get("HF_TOKEN", "").strip()
         # Парсим строку пресетов
         presets_list = [p.strip() for p in presets.split(',') if p.strip()]
         
@@ -666,9 +705,8 @@ def download_presets(request: Request, presets: str = Form(...)):
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
-                hf_env = os.environ.get("HF_TOKEN", "").strip()
-                if hf_env and "huggingface.co" in url:
-                    headers["Authorization"] = f"Bearer {hf_env}"
+                if effective_hf and "huggingface.co" in url:
+                    headers["Authorization"] = f"Bearer {effective_hf}"
                 response = requests.get(url, stream=True, headers=headers, timeout=300)
                 response.raise_for_status()
                 
@@ -1011,11 +1049,17 @@ def download_hf(
         return {"message": f"❌ Ошибка: {str(e)}"}
 
 @app.post("/download_url")
-def download_url(request: Request, url: str = Form(...), folder: str = Form("gguf")):
+def download_url(
+    request: Request,
+    url: str = Form(...),
+    folder: str = Form("gguf"),
+    hf_token: Optional[str] = Form(None),
+):
     from .guildclaw_glue import check_hub_request
 
     check_hub_request(request)
     try:
+        effective_hf = (hf_token or "").strip() or os.environ.get("HF_TOKEN", "").strip()
         # Создаем уникальный ID для отслеживания
         task_id = str(uuid.uuid4())
         
@@ -1028,9 +1072,8 @@ def download_url(request: Request, url: str = Form(...), folder: str = Form("ggu
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 }
-                hf_env = os.environ.get("HF_TOKEN", "").strip()
-                if hf_env and "huggingface.co" in url:
-                    headers["Authorization"] = f"Bearer {hf_env}"
+                if effective_hf and "huggingface.co" in url:
+                    headers["Authorization"] = f"Bearer {effective_hf}"
                 
                 # Обновляем статус - начало скачивания
                 download_status[task_id] = {
