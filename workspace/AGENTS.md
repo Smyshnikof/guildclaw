@@ -6,6 +6,7 @@
 
 - Идентичность и правила — в `IDENTITY.md`.
 - При необходимости создайте `USER.md` с вашими предпочтениями.
+- Подсказки по поду (ссылки, проверки сервисов, Telegram) — ноутбук **`Guildclaw_Mate.ipynb`** в этой же папке (JupyterLab: откройте `openclaw/Guildclaw_Mate.ipynb` из корня `/workspace`) или команда в терминале: `guildclaw-mate`.
 
 ## Модель
 
