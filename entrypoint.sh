@@ -332,6 +332,7 @@ GATEWAY_PID=$!
 
 echo ""
 oc_print_ready "LLM API (llama.cpp)" "$SERVED_MODEL_NAME" "${LLAMA_CTX_SIZE} ctx" "token"
+echo "  Помощник в контейнере: guildclaw-mate   (или: guildclaw-mate info / doctor / telegram)"
 echo "  Model Hub: http://localhost:8080"
 echo "  Pairing dashboard: http://localhost:8081"
 if [ -n "${JUPYTER_PID:-}" ]; then

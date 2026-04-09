@@ -57,7 +57,10 @@ COPY model_hub/ /opt/guildclaw/model_hub/
 COPY pairing_dashboard/ /opt/guildclaw/pairing_dashboard/
 COPY scripts/sync_openclaw_llama.py /opt/guildclaw/sync_openclaw_llama.py
 COPY scripts/compute_served_id.py /opt/guildclaw/scripts/compute_served_id.py
-RUN chmod +x /opt/guildclaw/sync_openclaw_llama.py /opt/guildclaw/scripts/compute_served_id.py
+COPY scripts/guildclaw_mate.py /opt/guildclaw/scripts/guildclaw_mate.py
+RUN chmod +x /opt/guildclaw/sync_openclaw_llama.py /opt/guildclaw/scripts/compute_served_id.py \
+        /opt/guildclaw/scripts/guildclaw_mate.py \
+    && ln -sf /opt/guildclaw/scripts/guildclaw_mate.py /usr/local/bin/guildclaw-mate
 
 COPY entrypoint-common.sh /opt/openclaw/entrypoint-common.sh
 COPY entrypoint.sh /entrypoint.sh
