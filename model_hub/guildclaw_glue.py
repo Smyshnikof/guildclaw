@@ -14,6 +14,8 @@ from typing import Any, Optional
 from urllib.parse import urlencode
 
 import httpx
+
+from .served_id import compute_served_id
 from fastapi import Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
@@ -220,7 +222,7 @@ def register_guildclaw(app: Any) -> None:
         p = Path(path).resolve()
         if not str(p).startswith(str(GGUF_DIR.resolve())):
             raise HTTPException(400)
-        sid = os.environ.get("SERVED_MODEL_NAME", "local-gguf").strip()
+        sid = compute_served_id(str(p))
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         with open(ACTIVE_FILE, "w", encoding="utf-8") as f:
             json.dump({"path": str(p), "served_id": sid}, f, indent=2)

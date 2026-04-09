@@ -56,7 +56,8 @@ RUN mkdir -p /workspace/huggingface \
 COPY model_hub/ /opt/guildclaw/model_hub/
 COPY pairing_dashboard/ /opt/guildclaw/pairing_dashboard/
 COPY scripts/sync_openclaw_llama.py /opt/guildclaw/sync_openclaw_llama.py
-RUN chmod +x /opt/guildclaw/sync_openclaw_llama.py
+COPY scripts/compute_served_id.py /opt/guildclaw/scripts/compute_served_id.py
+RUN chmod +x /opt/guildclaw/sync_openclaw_llama.py /opt/guildclaw/scripts/compute_served_id.py
 
 COPY entrypoint-common.sh /opt/openclaw/entrypoint-common.sh
 COPY entrypoint.sh /entrypoint.sh
@@ -69,7 +70,7 @@ EXPOSE 8000 8080 8081 8888 18789 18790 18793
 ENV LLAMA_API_KEY=changeme
 ENV OPENCLAW_WEB_PASSWORD=changeme
 ENV SERVED_MODEL_NAME=local-gguf
-ENV LLAMA_CTX_SIZE=8192
+ENV LLAMA_CTX_SIZE=16384
 ENV LLAMA_N_GPU_LAYERS=99
 ENV GUILDCLAW_HUB_TOKEN=""
 ENV GUILDCLAW_PAIRING_DASH_TOKEN=""

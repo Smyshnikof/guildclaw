@@ -16,7 +16,21 @@ OPENCLAW_WEB_PASSWORD="${OPENCLAW_WEB_PASSWORD:-${A2GO_AUTH_TOKEN:-changeme}}"
 OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-$HOME/.openclaw}"
 HF_HOME="${HF_HOME:-/workspace/huggingface}"
 SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-local-gguf}"
-LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-8192}"
+# Дефолт 16k+: OpenClaw agent отказывается работать при contextWindow < 16000 в openclaw.json.
+LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-16384}"
+OPENCLAW_AGENT_MIN_CTX="${OPENCLAW_AGENT_MIN_CTX:-16000}"
+case "${LLAMA_CTX_SIZE}" in
+    ''|*[!0-9]*)
+        echo "WARN: LLAMA_CTX_SIZE не число, используем 16384."
+        LLAMA_CTX_SIZE=16384
+        ;;
+    *)
+        if [ "$LLAMA_CTX_SIZE" -lt "$OPENCLAW_AGENT_MIN_CTX" ]; then
+            echo "WARN: LLAMA_CTX_SIZE=$LLAMA_CTX_SIZE < минимум OpenClaw ($OPENCLAW_AGENT_MIN_CTX) — поднимаем (иначе «Model context window too small»)."
+            LLAMA_CTX_SIZE="$OPENCLAW_AGENT_MIN_CTX"
+        fi
+        ;;
+esac
 LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-99}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
@@ -140,8 +154,9 @@ guildclaw_bootstrap_default_gguf() {
         echo "Файл по умолчанию уже на диске: $dest"
     fi
 
-    jq -n --arg p "$dest" --arg sid "$SERVED_MODEL_NAME" '{path: $p, served_id: $sid}' > "$ACTIVE_FILE"
-    echo "Автоактивация: $dest (served_id=$SERVED_MODEL_NAME)"
+    sid="$(python3 /opt/guildclaw/scripts/compute_served_id.py "$dest")"
+    jq -n --arg p "$dest" --arg sid "$sid" '{path: $p, served_id: $sid}' > "$ACTIVE_FILE"
+    echo "Автоактивация: $dest (served_id=$sid)"
 }
 
 python3 /opt/guildclaw/sync_openclaw_llama.py || true

@@ -37,7 +37,7 @@
     },
     {
       "key": "LLAMA_CTX_SIZE",
-      "value": "8192"
+      "value": "16384"
     },
     {
       "key": "LLAMA_N_GPU_LAYERS",

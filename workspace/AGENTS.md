@@ -9,7 +9,7 @@
 
 ## Модель
 
-Локальный LLM — **llama-server** (llama.cpp, GGUF) на `http://localhost:8000/v1`. Выбор и загрузка файлов — **Model Hub** на порту **8080**. Имя модели в OpenClaw — `SERVED_MODEL_NAME` (по умолчанию `local-gguf`) и запись в `/workspace/.guildclaw/active.json`.
+Локальный LLM — **llama-server** (llama.cpp, GGUF) на `http://localhost:8000/v1`. Выбор и загрузка файлов — **Model Hub** на порту **8080**. Имя модели в OpenClaw: при `SERVED_MODEL_NAME=local-gguf` (дефолт) id берётся из имени файла как `local-<slug>-gguf`; иначе используется заданный alias. Состояние — `/workspace/.guildclaw/active.json` (`path`, `served_id`).
 
 ## Безопасность
 

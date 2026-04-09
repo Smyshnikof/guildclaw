@@ -71,8 +71,9 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `GUILDCLAW_JUPYTER` | `1` (по умолчанию): запускать JupyterLab на **8888**. `0` — не запускать |
 | `GUILDCLAW_JUPYTER_TOKEN` | Токен входа в JupyterLab (`?token=…`). Если пусто, используется **`ACCESS_PASSWORD`** (совместимость с шаблоном ComfyUI/RunPod). Если оба пусты — Lab без токена (**не рекомендуется** на публичном прокси) |
 | `ACCESS_PASSWORD` | Опционально: общий пароль/токен для RunPod-шаблонов; при отсутствии `GUILDCLAW_JUPYTER_TOKEN` подставляется в JupyterLab |
-| `SERVED_MODEL_NAME` | Alias модели в API и в OpenClaw (по умолчанию `local-gguf`) |
-| `LLAMA_CTX_SIZE` | Контекст (по умолчанию 8192) |
+| `SERVED_MODEL_NAME` | Явный **alias** в API/OpenClaw; значение **`local-gguf`** (по умолчанию) значит *авто*: id строится из имени файла как `local-<slug>-gguf` (например `gemma-4-E4B-it-Q4_K_M.gguf` → `local-gemma-4-e4b-it-q4-k-m-gguf`). Любой другой непустой текст — зафиксированный id |
+| `LLAMA_CTX_SIZE` | Размер контекста для **llama-server** (`-c`) и поля `contextWindow` в OpenClaw (по умолчанию **16384**). Значения **ниже 16000** автоматически поднимаются до **16000**: иначе агент OpenClaw падает с «Model context window too small … Minimum is 16000». |
+| `OPENCLAW_AGENT_MIN_CTX` | Нижняя граница для clamp (по умолчанию `16000`); менять только если апстрим OpenClaw изменит требование |
 | `LLAMA_N_GPU_LAYERS` | Слоёв на GPU (99 ≈ максимум доступных) |
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |
