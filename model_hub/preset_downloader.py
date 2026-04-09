@@ -80,8 +80,23 @@ INDEX_HTML = """
     html,body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
     .wrap { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
     .title { font-size: 36px; font-weight: 800; margin: 0 0 8px; color: var(--accent); text-align: center; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
-    .subtitle { margin:0 0 40px; color:var(--muted); text-align: center; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 0 auto; max-width: 1000px; }
+    .subtitle { margin:0 0 28px; color:var(--muted); text-align: center; }
+    /* Один столбец с той же шириной, что и карточки пресетов — не «рвёт» экран */
+    .hub-main { max-width: 1000px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 0; width: 100%; }
+    .gc-token-card { margin-bottom: 20px; padding: 18px 20px; }
+    .gc-token-toggle {
+      display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer;
+      padding: 6px 8px; border-radius: 8px; transition: background 0.15s;
+    }
+    .gc-token-toggle:hover { background: rgba(255,255,255,0.04); }
+    .gc-token-toggle-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .gc-token-hint { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
+    .gc-token-chevron { font-size: 10px; color: var(--muted); opacity: 0.8; }
+    .gc-token-panel-inner { max-width: 440px; margin: 0 auto; text-align: center; }
+    .gc-token-panel-inner .row { grid-template-columns: 1fr; text-align: left; margin: 12px 0; }
+    .gc-token-panel-inner label { text-align: left; }
+    .gc-token-panel-inner .gc-token-actions { justify-content: center; }
     .card { background: var(--card); border:1px solid #3a3a3a; border-radius: 12px; padding: 24px; box-sizing: border-box; }
     .row { display:grid; grid-template-columns: 200px 1fr; gap:16px; align-items:center; margin:16px 0; }
     .row-full { display:grid; grid-template-columns: 1fr; gap:16px; margin:16px 0; }
@@ -191,39 +206,45 @@ INDEX_HTML = """
     <h1 class="title">Guildclaw Model Hub</h1>
     <p class="subtitle">Пресеты только из <span class="mono">model_hub/catalog.json</span> · HuggingFace · активация llama-server / OpenClaw</p>
 
-    <div class="card" style="margin-bottom:20px;padding:16px;background:#141414;border:1px solid #333;border-radius:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="document.getElementById('gc-token-panel').classList.toggle('hidden')">
-        <strong style="color:var(--accent)">🔑 Токены</strong>
-        <span class="mono" style="font-size:12px;color:var(--muted)">сохранение в браузере</span>
-      </div>
-      <div id="gc-token-panel" class="hidden" style="margin-top:14px">
-        <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Токен Hub (если задан <code>GUILDCLAW_HUB_TOKEN</code> на сервере) и опционально Hugging Face — хранятся только у вас в браузере.</p>
-        <div class="row" style="grid-template-columns:1fr">
-          <label for="gc_hub_token_input">Токен Model Hub</label>
-          <input id="gc_hub_token_input" type="password" autocomplete="current-password" placeholder="как в GUILDCLAW_HUB_TOKEN" style="width:100%;padding:10px 12px;background:#1a1a1a;border:1px solid #3a3a3a;color:var(--text);border-radius:8px;box-sizing:border-box"/>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-preset" onclick="gcSaveHubToken()">Сохранить Hub</button>
-            <button type="button" class="btn" style="background:#444" onclick="gcClearHubToken()">Забыть Hub</button>
-          </div>
-          <p id="gc_hub_token_status" style="font-size:12px;color:var(--muted);margin:8px 0 0"></p>
+    <div class="hub-main">
+    <div class="card gc-token-card">
+      <div class="gc-token-toggle" onclick="document.getElementById('gc-token-panel').classList.toggle('hidden'); document.getElementById('gc-token-chevron').textContent = document.getElementById('gc-token-panel').classList.contains('hidden') ? '▼' : '▲';" role="button" tabindex="0">
+        <div class="gc-token-toggle-row">
+          <strong style="color:var(--accent);font-size:15px">🔑 Токены</strong>
+          <span class="gc-token-chevron" id="gc-token-chevron">▼</span>
         </div>
-        <div class="row" style="grid-template-columns:1fr;margin-top:16px">
-          <label for="gc_hf_token_input">Токен Hugging Face (опционально)</label>
-          <input id="gc_hf_token_input" type="password" autocomplete="current-password" placeholder="hf_…" style="width:100%;padding:10px 12px;background:#1a1a1a;border:1px solid #3a3a3a;color:var(--text);border-radius:8px;box-sizing:border-box"/>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <span class="gc-token-hint">только в браузере (localStorage)</span>
+      </div>
+      <div id="gc-token-panel" class="hidden" style="margin-top:16px;padding-top:16px;border-top:1px solid #3a3a3a">
+        <div class="gc-token-panel-inner">
+          <p style="font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.45">Hub — если на сервере задан <code>GUILDCLAW_HUB_TOKEN</code>. Hugging Face — по желанию для скачиваний.</p>
+          <div class="row">
+            <label for="gc_hub_token_input">Токен Model Hub</label>
+            <input id="gc_hub_token_input" type="password" autocomplete="current-password" placeholder="вставьте и нажмите «Сохранить»" />
+          </div>
+          <div class="gc-token-actions" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+            <button type="button" class="btn btn-preset" onclick="gcSaveHubToken()">Сохранить Hub</button>
+            <button type="button" class="btn" style="background:#444;color:#eee;border-color:#555" onclick="gcClearHubToken()">Забыть Hub</button>
+          </div>
+          <p id="gc_hub_token_status" style="font-size:12px;color:var(--muted);margin:10px 0 0;text-align:center"></p>
+          <div class="row" style="margin-top:20px">
+            <label for="gc_hf_token_input">Токен Hugging Face</label>
+            <input id="gc_hf_token_input" type="password" autocomplete="current-password" placeholder="hf_…" />
+          </div>
+          <div class="gc-token-actions" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" class="btn btn-hf" onclick="gcSaveHfToken()">Сохранить HF</button>
-            <button type="button" class="btn" style="background:#444" onclick="gcClearHfToken()">Забыть HF</button>
+            <button type="button" class="btn" style="background:#444;color:#eee;border-color:#555" onclick="gcClearHfToken()">Забыть HF</button>
           </div>
         </div>
       </div>
     </div>
-    
+
     <div class="tabs">
       <div class="tab active" onclick="switchTab('presets')">🎯 Пресеты</div>
       <div class="tab" onclick="switchTab('huggingface')">🤗 HuggingFace</div>
       <div class="tab" onclick="switchTab('guildclaw')">🦞 Мои GGUF</div>
     </div>
-    
+
     <div class="grid">
       <!-- Пресеты -->
       <div class="card tab-content active" id="presets-tab">
@@ -339,6 +360,7 @@ INDEX_HTML = """
         <button type="button" class="btn btn-preset" onclick="refreshGgufList()">Обновить список</button>
         <div id="gc-gguf-list" style="margin-top:12px;">Откройте вкладку — загрузка списка…</div>
       </div>
+    </div>
     </div>
   </div>
   
