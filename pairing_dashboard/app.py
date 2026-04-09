@@ -97,6 +97,7 @@ async def index(request: Request) -> Any:
         err = str(e)
 
     now_ms = int(time.time() * 1000)
+    gw_ws = (os.environ.get("OPENCLAW_GATEWAY_WS") or "ws://127.0.0.1:18789").strip()
     return _TEMPLATES.TemplateResponse(
         request,
         "pairing.html",
@@ -108,6 +109,7 @@ async def index(request: Request) -> Any:
             "dash_secret_configured": bool(_dash_secret()),
             "now_ms": now_ms,
             "ttl_ms": _PAIRING_TTL_MS,
+            "gateway_ws_backend": gw_ws,
         },
     )
 
