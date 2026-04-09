@@ -16,6 +16,22 @@
       "value": ""
     },
     {
+      "key": "GUILDCLAW_PAIRING_DASH_TOKEN",
+      "value": ""
+    },
+    {
+      "key": "GUILDCLAW_JUPYTER",
+      "value": "1"
+    },
+    {
+      "key": "GUILDCLAW_JUPYTER_TOKEN",
+      "value": ""
+    },
+    {
+      "key": "ACCESS_PASSWORD",
+      "value": ""
+    },
+    {
       "key": "SERVED_MODEL_NAME",
       "value": "local-gguf"
     },

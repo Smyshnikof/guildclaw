@@ -40,7 +40,12 @@ ARG OPENCLAW_VERSION=latest
 RUN npm install -g "openclaw@${OPENCLAW_VERSION}"
 
 COPY model_hub/requirements.txt /opt/guildclaw/model_hub/requirements.txt
-RUN pip install --no-cache-dir --break-system-packages -r /opt/guildclaw/model_hub/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r /opt/guildclaw/model_hub/requirements.txt \
+    && pip install --no-cache-dir --break-system-packages \
+        "jupyterlab>=4,<5" \
+        ipykernel \
+        ipywidgets \
+        jupyterlab_widgets
 
 RUN mkdir -p /workspace/huggingface \
     /workspace/.openclaw \
@@ -49,6 +54,7 @@ RUN mkdir -p /workspace/huggingface \
     /workspace/.guildclaw
 
 COPY model_hub/ /opt/guildclaw/model_hub/
+COPY pairing_dashboard/ /opt/guildclaw/pairing_dashboard/
 COPY scripts/sync_openclaw_llama.py /opt/guildclaw/sync_openclaw_llama.py
 RUN chmod +x /opt/guildclaw/sync_openclaw_llama.py
 
@@ -58,7 +64,7 @@ RUN chmod +x /entrypoint.sh /opt/openclaw/entrypoint-common.sh
 
 COPY workspace/ /workspace/openclaw/
 
-EXPOSE 8000 8080 18789 18790 18793
+EXPOSE 8000 8080 8081 8888 18789 18790 18793
 
 ENV LLAMA_API_KEY=changeme
 ENV OPENCLAW_WEB_PASSWORD=changeme
@@ -66,6 +72,9 @@ ENV SERVED_MODEL_NAME=local-gguf
 ENV LLAMA_CTX_SIZE=8192
 ENV LLAMA_N_GPU_LAYERS=99
 ENV GUILDCLAW_HUB_TOKEN=""
+ENV GUILDCLAW_PAIRING_DASH_TOKEN=""
+ENV GUILDCLAW_JUPYTER=1
+ENV GUILDCLAW_JUPYTER_TOKEN=""
 ENV LLAMA_SERVER_EXTRA_ARGS=""
 
 # Первый запуск: скачать и активировать GGUF (пока нет валидного active.json). Отключить: GUILDCLAW_BOOTSTRAP_GGUF=0
@@ -77,7 +86,7 @@ ENV GUILDCLAW_DEFAULT_GGUF_FILENAME=gemma-4-E4B-it-Q4_K_M.gguf
 ENV VLLM_API_KEY=changeme
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -sf http://localhost:8080/health || exit 1
+    CMD curl -sf http://localhost:8080/health && curl -sf http://localhost:8081/health || exit 1
 
 WORKDIR /workspace
 

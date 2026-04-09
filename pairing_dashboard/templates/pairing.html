@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="12" />
+  <title>Pairing — Guildclaw</title>
+  <style>
+    :root {
+      --bg: #1a1a1a;
+      --card: #252525;
+      --border: #3a3a3a;
+      --text: #e8e8e8;
+      --muted: #9aa0a6;
+      --accent: #4a9eff;
+      --danger: #e85d5d;
+      --ok: #5cb85c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px 16px 48px;
+      line-height: 1.45;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; font-weight: 600; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+    .banner {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .banner.warn { border-color: #8a6d3b; }
+    .banner.err { border-color: var(--danger); color: #f0b0b0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+    .card h2 { font-size: 1rem; margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    button.approve { background: var(--ok); color: #111; }
+    button.reject { background: var(--danger); color: #fff; }
+    .ttl { color: var(--muted); font-size: 12px; }
+    .empty { color: var(--muted); font-size: 14px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <h1>Node pairing</h1>
+  <p class="sub">Очередь <code>node.pair.*</code> через локальный шлюз. Запросы в pending истекают примерно через 5 минут. Страница обновляется каждые ~12 с.</p>
+
+  {% if not dash_secret_configured %}
+  <div class="banner warn">На сервере не задан ни <code>GUILDCLAW_PAIRING_DASH_TOKEN</code>, ни <code>OPENCLAW_WEB_PASSWORD</code> — доступ к дашборду не ограничен.</div>
+  {% endif %}
+
+  {% if error %}
+  <div class="banner err"><strong>Шлюз:</strong> {{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Ожидают решения</h2>
+    {% if pending and pending|length > 0 %}
+    <table>
+      <thead>
+        <tr>
+          <th>requestId</th>
+          <th>nodeId</th>
+          <th>Инфо</th>
+          <th>Осталось</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in pending %}
+        {% set ts = row.get('ts', 0) %}
+        {% set left = ttl_ms - (now_ms - ts) if ts else 0 %}
+        <tr>
+          <td class="mono">{{ row.get('requestId', '') }}</td>
+          <td class="mono">{{ row.get('nodeId', '') }}</td>
+          <td>
+            {{ row.get('displayName') or '—' }}
+            {% if row.get('platform') %}<br/><span class="ttl">{{ row.get('platform') }}</span>{% endif %}
+            {% set cmds = row.get('commands') or [] %}
+            {% if cmds %}<br/><span class="ttl mono">{{ cmds | join(', ') }}</span>{% endif %}
+          </td>
+          <td class="ttl">{% if left > 0 %}{{ (left // 60000) }} мин {{ ((left % 60000) // 1000) }} с{% else %}истекает{% endif %}</td>
+          <td>
+            <form method="post" action="/approve" class="actions" style="margin:0">
+              {% if auth_token %}<input type="hidden" name="token" value="{{ auth_token }}" />{% endif %}
+              <input type="hidden" name="request_id" value="{{ row.get('requestId', '') }}" />
+              <button type="submit" class="approve">Approve</button>
+            </form>
+            <form method="post" action="/reject" class="actions" style="margin:0">
+              {% if auth_token %}<input type="hidden" name="token" value="{{ auth_token }}" />{% endif %}
+              <input type="hidden" name="request_id" value="{{ row.get('requestId', '') }}" />
+              <button type="submit" class="reject">Reject</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Нет pending-запросов.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Связанные ноды</h2>
+    {% if paired and paired|length > 0 %}
+    <table>
+      <thead>
+        <tr>
+          <th>nodeId</th>
+          <th>Имя</th>
+          <th>Платформа</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in paired %}
+        <tr>
+          <td class="mono">{{ row.get('nodeId', '') }}</td>
+          <td>{{ row.get('displayName') or '—' }}</td>
+          <td class="ttl">{{ row.get('platform') or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Пока нет одобренных нод.</p>
+    {% endif %}
+  </div>
+</body>
+</html>

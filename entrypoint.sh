@@ -152,6 +152,40 @@ cd /opt/guildclaw
 python3 -m uvicorn model_hub.app:app --host 0.0.0.0 --port 8080 &
 HUB_PID=$!
 
+echo "Starting Pairing dashboard on :8081..."
+python3 -m uvicorn pairing_dashboard.app:app --host 0.0.0.0 --port 8081 &
+PAIRING_DASH_PID=$!
+
+JUPYTER_PID=""
+if [ "${GUILDCLAW_JUPYTER:-1}" != "0" ]; then
+    mkdir -p /workspace/logs
+    JUPYTER_TOKEN="${GUILDCLAW_JUPYTER_TOKEN:-}"
+    if [ -z "$JUPYTER_TOKEN" ] && [ -n "${ACCESS_PASSWORD:-}" ]; then
+        JUPYTER_TOKEN="$ACCESS_PASSWORD"
+    fi
+    if [ -z "$JUPYTER_TOKEN" ]; then
+        echo "WARN: JupyterLab стартует без токена. Задайте GUILDCLAW_JUPYTER_TOKEN или ACCESS_PASSWORD (как в шаблоне ComfyUI/RunPod)."
+    else
+        echo "Starting JupyterLab on :8888 (токен задан)..."
+    fi
+    cd /workspace
+    # Как в ComfyUI RunPod: https://github.com/.../scripts/start.sh — allow_origin, terminado, /workspace
+    nohup jupyter lab --allow-root \
+        --no-browser \
+        --port=8888 \
+        --ip=0.0.0.0 \
+        --FileContentsManager.delete_to_trash=False \
+        --ContentsManager.allow_hidden=True \
+        --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' \
+        --ServerApp.token="${JUPYTER_TOKEN}" \
+        --ServerApp.allow_origin='*' \
+        --ServerApp.root_dir=/workspace \
+        --ServerApp.preferred_dir=/workspace \
+        >> /workspace/logs/jupyterlab.log 2>&1 &
+    JUPYTER_PID=$!
+    echo "JupyterLab PID=$JUPYTER_PID (лог: /workspace/logs/jupyterlab.log)"
+fi
+
 # Hub сразу, чтобы во время долгого curl на дефолтный GGUF можно было зайти в UI
 guildclaw_bootstrap_default_gguf
 
@@ -219,13 +253,27 @@ GATEWAY_PID=$!
 echo ""
 oc_print_ready "LLM API (llama.cpp)" "$SERVED_MODEL_NAME" "${LLAMA_CTX_SIZE} ctx" "token"
 echo "  Model Hub: http://localhost:8080"
+echo "  Pairing dashboard: http://localhost:8081"
+if [ -n "${JUPYTER_PID:-}" ]; then
+    echo "  JupyterLab: http://localhost:8888/lab"
+    if [ -n "${JUPYTER_TOKEN:-}" ]; then
+        echo "    Вход: добавьте к URL ?token=<GUILDCLAW_JUPYTER_TOKEN или ACCESS_PASSWORD>"
+    fi
+fi
 if [ -n "${RUNPOD_POD_ID:-}" ]; then
     echo "  Model Hub (RunPod proxy): https://${RUNPOD_POD_ID}-8080.proxy.runpod.net/"
+    echo "  Pairing (RunPod proxy): https://${RUNPOD_POD_ID}-8081.proxy.runpod.net/"
+    if [ -n "${JUPYTER_PID:-}" ]; then
+        echo "  JupyterLab (RunPod proxy): https://${RUNPOD_POD_ID}-8888.proxy.runpod.net/lab"
+    fi
 fi
 echo ""
 
 cleanup() {
-    kill "$HUB_PID" "$GATEWAY_PID" "$LLAMA_SUP_PID" 2>/dev/null || true
+    kill "$HUB_PID" "$PAIRING_DASH_PID" "$GATEWAY_PID" "$LLAMA_SUP_PID" 2>/dev/null || true
+    if [ -n "${JUPYTER_PID:-}" ]; then
+        kill "$JUPYTER_PID" 2>/dev/null || true
+    fi
     if [ -f "$LLAMA_PID_FILE" ]; then
         kill "$(cat "$LLAMA_PID_FILE")" 2>/dev/null || true
     fi
