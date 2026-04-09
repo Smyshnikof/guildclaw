@@ -1,5 +1,8 @@
-# Guildclaw: OpenClaw + llama.cpp (llama-server) + веб-хаб выбора GGUF.
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+# Guildclaw: OpenClaw + llama-server (CUDA) + Model Hub.
+# llama-server берётся готовым из образа ggml-org (без cmake/nvcc в CI — сборка в разы быстрее).
+# Документация образов: https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
+ARG LLAMA_SERVER_IMAGE=ghcr.io/ggml-org/llama.cpp:server-cuda
+FROM ${LLAMA_SERVER_IMAGE}
 
 LABEL org.opencontainers.image.title="guildclaw"
 LABEL org.opencontainers.image.description="Guildclaw: OpenClaw + llama.cpp GGUF + Model Hub (NVIDIA GPU)"
@@ -7,47 +10,33 @@ LABEL org.opencontainers.image.description="Guildclaw: OpenClaw + llama.cpp GGUF
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HF_HOME=/workspace/huggingface
 ENV OPENCLAW_WORKSPACE=/workspace/openclaw
-# nvcc должен быть в PATH на этапе cmake (GGML_CUDA).
-ENV PATH=/usr/local/cuda/bin:${PATH}
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64
+
+USER root
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     curl \
     wget \
     git \
     jq \
     lsof \
-    cmake \
-    build-essential \
-    ninja-build \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
-
-# llama-server с CUDA. Без sm_100: в CUDA 12.4 nvcc его обычно не поддерживает — cmake падает на enable_language(CUDA).
-# Для Blackwell пересоберите с базой CUDA 12.8+ и, например: --build-arg CMAKE_CUDA_ARCHS="90;100"
-ARG LLAMA_CPP_REF=b8295
-ARG CMAKE_CUDA_ARCHS=75;80;86;89;90
-RUN git clone --depth 1 --branch "${LLAMA_CPP_REF}" https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp \
-    && cd /tmp/llama.cpp \
-    && cmake -B build -G Ninja \
-        -DGGML_CUDA=ON \
-        -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
-        -DCMAKE_CUDA_ARCHITECTURES="${CMAKE_CUDA_ARCHS}" \
-        -DLLAMA_BUILD_TESTS=OFF \
-        -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build -j 2 --target llama-server \
-    && cp build/bin/llama-server /usr/local/bin/ \
-    && rm -rf /tmp/llama.cpp
 
 # Не делать npm install -g npm@latest — NodeSource ломается.
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && node --version && npm --version
 
+# Бинарь в апстрим-образе лежит в /app; в PATH — как раньше для entrypoint.sh и pkill -x llama-server
+RUN ln -sf /app/llama-server /usr/local/bin/llama-server
+
 ARG OPENCLAW_VERSION=latest
 RUN npm install -g "openclaw@${OPENCLAW_VERSION}"
 
 COPY model_hub/requirements.txt /opt/guildclaw/model_hub/requirements.txt
-RUN pip install --no-cache-dir -r /opt/guildclaw/model_hub/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r /opt/guildclaw/model_hub/requirements.txt
 
 RUN mkdir -p /workspace/huggingface \
     /workspace/.openclaw \

@@ -35,7 +35,7 @@ docker run --gpus all \
 
 ## Сборка образа (GitHub Actions)
 
-Сборка **долгая** (компиляция llama.cpp + CUDA). В workflow выставлен таймаут **180** минут.
+`llama-server` с CUDA берётся **готовым** из [`ghcr.io/ggml-org/llama.cpp:server-cuda`](https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md) — **без** компиляции llama.cpp в CI (значительно быстрее). Другой вариант CUDA: `--build-arg LLAMA_SERVER_IMAGE=ghcr.io/ggml-org/llama.cpp:server-cuda13`. Таймаут workflow **180** минут остаётся с запасом.
 
 Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and push guildclaw**.
 
