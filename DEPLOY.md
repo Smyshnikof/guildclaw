@@ -74,7 +74,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `SERVED_MODEL_NAME` | Явный **alias** в API/OpenClaw; значение **`local-gguf`** (по умолчанию) значит *авто*: id строится из имени файла как `local-<slug>-gguf` (например `gemma-4-E4B-it-Q4_K_M.gguf` → `local-gemma-4-e4b-it-q4-k-m-gguf`). Любой другой непустой текст — зафиксированный id |
 | `LLAMA_CTX_SIZE` | Размер контекста для **llama-server** (`-c`) и поля `contextWindow` в OpenClaw (по умолчанию **16384**). Значения **ниже 16000** автоматически поднимаются до **16000**: иначе агент OpenClaw падает с «Model context window too small … Minimum is 16000». |
 | `OPENCLAW_AGENT_MIN_CTX` | Нижняя граница для clamp (по умолчанию `16000`); менять только если апстрим OpenClaw изменит требование |
-| `OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR` | Минимум зарезервированных токенов под компакцию диалога в `agents.defaults.compaction.reserveTokensFloor` (по умолчанию **20000**). Меньше — OpenClaw может сбрасывать чат с «Context limit exceeded…» |
+| `OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR` | Целевой буфер компакции в `agents.*.compaction.reserveTokensFloor` (по умолчанию **20000**). **Важно:** значение автоматически **ограничивается ниже `LLAMA_CTX_SIZE`** (при 16k контексте 20k резерва невозможно — ломается компакция и тот же сброс чата). Для полных **20000** поднимите **`LLAMA_CTX_SIZE`** хотя бы до **~28672** (часто ставят **32768**, если хватает VRAM). |
 | `LLAMA_N_GPU_LAYERS` | Слоёв на GPU (99 ≈ максимум доступных) |
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |

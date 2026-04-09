@@ -15,7 +15,7 @@ def _guildclaw_root() -> Path:
 
 
 def _compaction_reserve_floor() -> int:
-    """OpenClaw: при малом буфере чат сбрасывается («reserveTokensFloor» ≥ 20000)."""
+    """Желаемый минимум буфера компакции (env); реальное значение режется под contextWindow."""
     raw = (os.environ.get("OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR") or "20000").strip()
     try:
         n = int(raw)
@@ -24,16 +24,46 @@ def _compaction_reserve_floor() -> int:
     return max(n, 20000)
 
 
-def _ensure_compaction_reserve(data: dict) -> None:
+def _clamp_compaction_reserve(want: int, context_window: int) -> int:
+    """
+    reserveTokensFloor должен быть строго меньше contextWindow, иначе порог компакции
+    (contextWindow - reserve) неположительный — OpenClaw сбрасывает чат с «Context limit exceeded».
+    Апстрим клампит ~до 75% окна; берём запас.
+    """
+    cw = max(int(context_window), 4096)
+    cap_ratio = cw * 72 // 100
+    cap_margin = cw - 4096
+    cap = min(cap_ratio, cap_margin)
+    cap = max(cap, 2048)
+    w = max(int(want), 1)
+    return min(w, cap)
+
+
+def _ensure_compaction_reserve(data: dict, context_window: int) -> None:
     target = _compaction_reserve_floor()
-    agents_def = data.setdefault("agents", {}).setdefault("defaults", {})
-    compaction = agents_def.setdefault("compaction", {})
-    cur = compaction.get("reserveTokensFloor")
-    try:
-        cur_i = int(cur)
-    except (TypeError, ValueError):
-        cur_i = 0
-    compaction["reserveTokensFloor"] = max(cur_i, target)
+    reserve = _clamp_compaction_reserve(target, context_window)
+    if reserve < target:
+        print(
+            f"guildclaw-sync: reserveTokensFloor {target} -> {reserve} "
+            f"(contextWindow={context_window}; при 16k окне нельзя держать 20k резерва — "
+            f"поднимите LLAMA_CTX_SIZE, например 32768, если хватает VRAM)",
+            file=sys.stderr,
+        )
+
+    agents_root = data.get("agents")
+    if not isinstance(agents_root, dict):
+        agents_root = data.setdefault("agents", {})
+    for _key, block in agents_root.items():
+        if not isinstance(block, dict):
+            continue
+        compaction = block.setdefault("compaction", {})
+        cur = compaction.get("reserveTokensFloor")
+        try:
+            cur_i = int(cur)
+        except (TypeError, ValueError):
+            cur_i = 0
+        merged = max(cur_i, reserve)
+        compaction["reserveTokensFloor"] = _clamp_compaction_reserve(merged, context_window)
 
 
 def _effective_context_window() -> int:
@@ -102,8 +132,8 @@ def main() -> int:
     data.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})[
         "primary"
     ] = f"local-llama/{sid}"
-    _ensure_compaction_reserve(data)
 
+    cw = _effective_context_window()
     prov = (
         data.setdefault("models", {})
         .setdefault("providers", {})
@@ -123,7 +153,7 @@ def main() -> int:
             {
                 "id": sid,
                 "name": human,
-                "contextWindow": _effective_context_window(),
+                "contextWindow": cw,
                 "maxTokens": 4096,
                 "reasoning": False,
                 "input": ["text"],
@@ -133,7 +163,13 @@ def main() -> int:
     else:
         models[0]["id"] = sid
         models[0]["name"] = human
-        models[0]["contextWindow"] = _effective_context_window()
+        models[0]["contextWindow"] = cw
+
+    try:
+        cw_eff = int(models[0].get("contextWindow") or cw)
+    except (TypeError, ValueError):
+        cw_eff = cw
+    _ensure_compaction_reserve(data, cw_eff)
 
     cfg_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     try:

@@ -40,6 +40,15 @@ esac
 if [ "$OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR" -lt 20000 ]; then
     OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR=20000
 fi
+# reserveTokensFloor >= contextWindow ломает компакцию OpenClaw (отрицательный порог) → сброс чата.
+_gc_rmax=$(( LLAMA_CTX_SIZE * 72 / 100 ))
+_gc_margin=$(( LLAMA_CTX_SIZE - 4096 ))
+[ "$_gc_margin" -lt "$_gc_rmax" ] && _gc_rmax="$_gc_margin"
+[ "$_gc_rmax" -lt 2048 ] && _gc_rmax=2048
+if [ "$OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR" -gt "$_gc_rmax" ]; then
+    echo "WARN: OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR ($OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR) > ${_gc_rmax} при LLAMA_CTX_SIZE=$LLAMA_CTX_SIZE — ставим ${_gc_rmax} (иначе «Context limit exceeded» без нормальной компакции)."
+    OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR="$_gc_rmax"
+fi
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
 STATE_DIR=/workspace/.guildclaw
