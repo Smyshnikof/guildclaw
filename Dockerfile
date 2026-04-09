@@ -68,6 +68,11 @@ ENV LLAMA_N_GPU_LAYERS=99
 ENV GUILDCLAW_HUB_TOKEN=""
 ENV LLAMA_SERVER_EXTRA_ARGS=""
 
+# Первый запуск: скачать и активировать GGUF (пока нет валидного active.json). Отключить: GUILDCLAW_BOOTSTRAP_GGUF=0
+ENV GUILDCLAW_BOOTSTRAP_GGUF=1
+ENV GUILDCLAW_DEFAULT_GGUF_URL=https://huggingface.co/lmstudio-community/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf
+ENV GUILDCLAW_DEFAULT_GGUF_FILENAME=gemma-4-E4B-it-Q4_K_M.gguf
+
 # Совместимость со старым шаблоном RunPod
 ENV VLLM_API_KEY=changeme
 

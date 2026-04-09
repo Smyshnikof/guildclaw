@@ -68,6 +68,9 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `LLAMA_N_GPU_LAYERS` | Слоёв на GPU (99 ≈ максимум доступных) |
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |
+| `GUILDCLAW_BOOTSTRAP_GGUF` | `1` (по умолчанию): если нет валидного `active.json`, скачать дефолтный GGUF и активировать. `0` — только Hub вручную |
+| `GUILDCLAW_DEFAULT_GGUF_URL` | URL дефолтного `.gguf` (по умолчанию Gemma 4 E4B Q4_K_M с HF) |
+| `GUILDCLAW_DEFAULT_GGUF_FILENAME` | Имя файла в `/workspace/models/gguf/` |
 | `TELEGRAM_BOT_TOKEN` | Опционально |
 
 Совместимость: **`VLLM_API_KEY`** в окружении всё ещё подхватывается как **`LLAMA_API_KEY`**, если последний не задан.

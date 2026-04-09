@@ -87,10 +87,60 @@ if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
 }
 EOF
     chmod 600 "$OPENCLAW_STATE_DIR/openclaw.json"
-    echo "Config created. Затем выберите GGUF в Model Hub (порт 8080) и нажмите «Активировать»."
+    echo "Config created. При первом запуске подтянется GGUF по умолчанию; сменить модель — Model Hub (:8080)."
 else
     echo "Existing config found at $OPENCLAW_STATE_DIR/openclaw.json — preserving (синхронизируем id модели при необходимости)"
 fi
+
+# Первый запуск / нет валидной активной модели: скачать дефолтный GGUF и записать active.json (HF_TOKEN подхватится для приватных зеркал).
+guildclaw_bootstrap_default_gguf() {
+    [ "${GUILDCLAW_BOOTSTRAP_GGUF:-1}" = "0" ] && return 0
+    local url="${GUILDCLAW_DEFAULT_GGUF_URL:-}"
+    local name="${GUILDCLAW_DEFAULT_GGUF_FILENAME:-gemma-4-E4B-it-Q4_K_M.gguf}"
+    [ -z "$url" ] && return 0
+
+    if [ -f "$ACTIVE_FILE" ]; then
+        local p
+        p=$(jq -r '.path // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
+        if [ -n "$p" ] && [ -f "$p" ]; then
+            echo "Активная модель уже есть ($p), авто-скачивание GGUF пропущено."
+            return 0
+        fi
+    fi
+
+    mkdir -p "$GGUF_DIR"
+    local dest="$GGUF_DIR/$name"
+
+    if [ ! -f "$dest" ]; then
+        echo "Скачивание GGUF по умолчанию (может занять несколько минут)..."
+        echo "  URL: $url"
+        local tmp="${dest}.part"
+        rm -f "$tmp"
+        set +e
+        if [ -n "${HF_TOKEN:-}" ] && [[ "$url" == *"huggingface.co"* ]]; then
+            curl -fL --connect-timeout 30 --retry 5 --retry-delay 10 \
+                -H "Authorization: Bearer ${HF_TOKEN}" -o "$tmp" "$url"
+        else
+            curl -fL --connect-timeout 30 --retry 5 --retry-delay 10 -o "$tmp" "$url"
+        fi
+        local cr=$?
+        set -e
+        if [ "$cr" -ne 0 ] || [ ! -s "$tmp" ]; then
+            rm -f "$tmp"
+            echo "WARN: не удалось скачать дефолтный GGUF (curl exit $cr). Загрузите модель вручную в Model Hub (:8080)."
+            return 0
+        fi
+        mv "$tmp" "$dest"
+        echo "Сохранено: $dest"
+    else
+        echo "Файл по умолчанию уже на диске: $dest"
+    fi
+
+    jq -n --arg p "$dest" --arg sid "$SERVED_MODEL_NAME" '{path: $p, served_id: $sid}' > "$ACTIVE_FILE"
+    echo "Автоактивация: $dest (served_id=$SERVED_MODEL_NAME)"
+}
+
+guildclaw_bootstrap_default_gguf
 
 python3 /opt/guildclaw/sync_openclaw_llama.py || true
 oc_sync_gateway_auth "token"
