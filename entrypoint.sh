@@ -209,6 +209,7 @@ while [ $WAITED -lt $MAX_WAIT ]; do
 done
 
 python3 /opt/guildclaw/sync_openclaw_llama.py || true
+oc_sync_control_ui_origins
 
 echo ""
 echo "Starting OpenClaw gateway..."

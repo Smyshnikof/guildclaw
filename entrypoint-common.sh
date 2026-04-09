@@ -104,6 +104,68 @@ PY
     chmod 600 "$cfg" 2>/dev/null || true
 }
 
+# RunPod / прокси: Origin в браузере — https://<pod>-18789.proxy.runpod.net, без записи в allowedOrigins шлюз отклоняет Control UI.
+oc_sync_control_ui_origins() {
+    local cfg="${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/openclaw.json"
+    if [ ! -f "$cfg" ]; then
+        return
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "WARNING: python3 not found; skipping controlUi.allowedOrigins sync"
+        return
+    fi
+
+    python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+cfg = Path(os.environ.get("OPENCLAW_STATE_DIR", Path.home() / ".openclaw")) / "openclaw.json"
+if not cfg.is_file():
+    raise SystemExit(0)
+
+with open(cfg, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+gw = data.setdefault("gateway", {})
+cui = gw.setdefault("controlUi", {})
+
+allow_any = os.environ.get("OPENCLAW_CONTROL_UI_ALLOW_ANY", "").strip().lower() in ("1", "true", "yes")
+if allow_any:
+    if cui.get("allowedOrigins") != ["*"]:
+        cui["allowedOrigins"] = ["*"]
+        changed = True
+    else:
+        changed = False
+else:
+    want = set(cui.get("allowedOrigins") or [])
+    for o in ("http://127.0.0.1:18789", "http://localhost:18789"):
+        want.add(o)
+    pod = os.environ.get("RUNPOD_POD_ID", "").strip()
+    if pod:
+        want.add(f"https://{pod}-18789.proxy.runpod.net")
+    extra = os.environ.get("OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS", "").strip()
+    if extra:
+        for part in extra.split(","):
+            p = part.strip()
+            if p:
+                want.add(p)
+    # стабильный порядок: localhost, runpod, остальное по алфавиту
+    fixed = [x for x in ("http://127.0.0.1:18789", "http://localhost:18789") if x in want]
+    rest = sorted(want - set(fixed))
+    new_list = fixed + rest
+    old_list = cui.get("allowedOrigins") or []
+    changed = old_list != new_list
+    if changed:
+        cui["allowedOrigins"] = new_list
+
+if changed:
+    with open(cfg, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+PY
+    chmod 600 "$cfg" 2>/dev/null || true
+}
+
 oc_create_path_symlinks() {
     local home_oc="$HOME/.openclaw"
 

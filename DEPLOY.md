@@ -72,6 +72,10 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `GUILDCLAW_DEFAULT_GGUF_URL` | URL дефолтного `.gguf` (по умолчанию Gemma 4 E4B Q4_K_M с HF) |
 | `GUILDCLAW_DEFAULT_GGUF_FILENAME` | Имя файла в `/workspace/models/gguf/` |
 | `TELEGRAM_BOT_TOKEN` | Опционально |
+| `OPENCLAW_CONTROL_UI_ALLOWED_ORIGINS` | Доп. origin для Control UI (через запятую), если заходите не с RunPod-прокси |
+| `OPENCLAW_CONTROL_UI_ALLOW_ANY` | `1` / `true` — `allowedOrigins: ["*"]` (проще, но слабее с точки зрения безопасности) |
+
+Переменная **`RUNPOD_POD_ID`** задаётся RunPod сама; в `openclaw.json` автоматически добавляется `https://<pod>-18789.proxy.runpod.net` в `gateway.controlUi.allowedOrigins` перед стартом шлюза.
 
 Совместимость: если в образе **`LLAMA_API_KEY=changeme`**, а вы задали только **`VLLM_API_KEY`** (как в старых шаблонах), он **подставится** и в llama-server, и в `openclaw.json` после синка. Явно задайте **`LLAMA_API_KEY`**, если нужен отдельный ключ только для LLM API.
 
