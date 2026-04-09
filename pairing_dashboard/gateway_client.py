@@ -2,20 +2,28 @@
 WebSocket-клиент к OpenClaw Gateway (JSON-RPC).
 Документация: https://github.com/openclaw/openclaw/blob/main/docs/gateway/protocol.md
 
-Оператор с валидным shared token на loopback может не передавать device
-(roleCanSkipDeviceIdentity в openclaw role-policy).
-Клиент объявляется как cli/cli — как у openclaw CLI в контейнере.
+У шлюза для сессий без device identity self-declared scopes сбрасываются
+(shouldClearUnboundScopesForMissingDeviceIdentity) → node.pair.* даёт
+«missing scope: operator.pairing». Поэтому connect всегда с Ed25519 device + подпись
+connect.challenge (v3), см. ws_device_identity.py.
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import os
+import time
 import uuid
 from typing import Any, Optional
 
 import websockets
 from websockets.client import WebSocketClientProtocol
+
+from .ws_device_identity import (
+    build_auth_payload_v3,
+    load_or_create_ws_device_identity,
+    sign_payload_v3,
+)
 
 _OPERATOR_SCOPES = [
     "operator.read",
@@ -44,10 +52,9 @@ async def _recv_until_res(ws: WebSocketClientProtocol, expect_id: str, timeout: 
             return msg
 
 
-async def _drain_connect_challenge(ws: WebSocketClientProtocol, timeout: float) -> None:
-    """Сервер шлёт event connect.challenge до первого connect (актуальные версии OpenClaw)."""
+async def _read_connect_challenge_nonce(ws: WebSocketClientProtocol, timeout: float) -> str:
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + min(timeout, 5.0)
+    deadline = loop.time() + min(timeout, 15.0)
     while loop.time() < deadline:
         remaining = deadline - loop.time()
         if remaining <= 0:
@@ -55,21 +62,43 @@ async def _drain_connect_challenge(ws: WebSocketClientProtocol, timeout: float) 
         try:
             raw = await asyncio.wait_for(ws.recv(), timeout=remaining)
         except asyncio.TimeoutError:
-            return
+            break
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
             continue
         if msg.get("type") == "event" and msg.get("event") == "connect.challenge":
-            return
-        # иные события до connect игнорируем
+            pl = msg.get("payload") or {}
+            n = pl.get("nonce")
+            return str(n) if n is not None else ""
+    return ""
 
 
 async def _connect_operator(ws: WebSocketClientProtocol, token: str, timeout: float) -> None:
-    await _drain_connect_challenge(ws, timeout)
+    nonce = await _read_connect_challenge_nonce(ws, timeout)
+    if not nonce:
+        raise RuntimeError(
+            "Шлюз не прислал connect.challenge (nonce пуст). Проверьте, что gateway запущен и URL верный."
+        )
+
+    ident = load_or_create_ws_device_identity()
+    signed_at = int(time.time() * 1000)
+    payload_str = build_auth_payload_v3(
+        device_id=ident.device_id,
+        client_id="cli",
+        client_mode="cli",
+        role="operator",
+        scopes=_OPERATOR_SCOPES,
+        signed_at_ms=signed_at,
+        token=token,
+        nonce=nonce,
+        platform="linux",
+        device_family="",
+    )
+    signature = sign_payload_v3(ident.private_key_pem, payload_str)
 
     conn_id = str(uuid.uuid4())
-    payload = {
+    frame = {
         "type": "req",
         "id": conn_id,
         "method": "connect",
@@ -90,9 +119,16 @@ async def _connect_operator(ws: WebSocketClientProtocol, token: str, timeout: fl
             "auth": {"token": token},
             "locale": "ru-RU",
             "userAgent": "guildclaw-pairing-dashboard/1.0",
+            "device": {
+                "id": ident.device_id,
+                "publicKey": ident.public_key_pem.strip(),
+                "signature": signature,
+                "signedAt": signed_at,
+                "nonce": nonce,
+            },
         },
     }
-    await ws.send(json.dumps(payload))
+    await ws.send(json.dumps(frame))
     res = await _recv_until_res(ws, conn_id, timeout)
     if not res.get("ok"):
         err = res.get("error") or res

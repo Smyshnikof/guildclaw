@@ -154,21 +154,21 @@ const selectedPresets = new Set();
 let activeCategory = "all";
 
 function switchTab(name) {
-  document.querySelectorAll(".wrap > .tabs .tab").forEach((t) => t.classList.remove("active"));
-  document.querySelectorAll(".grid .tab-content").forEach((c) => c.classList.remove("active"));
-  const tabs = document.querySelectorAll(".wrap > .tabs .tab");
-  if (name === "presets") {
-    tabs[0].classList.add("active");
-    document.getElementById("presets-tab").classList.add("active");
-  } else if (name === "huggingface") {
-    tabs[1].classList.add("active");
-    document.getElementById("huggingface-tab").classList.add("active");
-    gcLoadSavedHf();
-  } else if (name === "guildclaw") {
-    tabs[2].classList.add("active");
-    document.getElementById("guildclaw-tab").classList.add("active");
-    refreshGgufList();
+  document.querySelectorAll("#hub-root-tabs > .tab").forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".grid > .tab-content").forEach((c) => c.classList.remove("active"));
+  const tabs = document.querySelectorAll("#hub-root-tabs > .tab");
+  const idx = name === "presets" ? 0 : name === "huggingface" ? 1 : name === "guildclaw" ? 2 : -1;
+  if (idx < 0 || !tabs[idx]) {
+    console.warn("switchTab: неизвестное имя или нет вкладок", name, tabs.length);
+    return;
   }
+  tabs[idx].classList.add("active");
+  const pane = document.getElementById(
+    name === "presets" ? "presets-tab" : name === "huggingface" ? "huggingface-tab" : "guildclaw-tab"
+  );
+  if (pane) pane.classList.add("active");
+  if (name === "huggingface") gcLoadSavedHf();
+  if (name === "guildclaw" && typeof refreshGgufList === "function") refreshGgufList();
 }
 
 function filterByCategory(catId, ev) {
@@ -297,16 +297,18 @@ function pollPresetStatus(taskId) {
 }
 
 function switchHFMethod(m) {
-  document.querySelectorAll("#huggingface-tab .tabs .tab").forEach((t) => t.classList.remove("active"));
-  const inner = document.querySelectorAll("#huggingface-tab .tabs .tab");
+  const inner = document.querySelectorAll("#huggingface-tab > .tabs > .tab");
+  inner.forEach((t) => t.classList.remove("active"));
+  const urlForm = document.getElementById("hf-url-form");
+  const repoForm = document.getElementById("hf-repo-form");
   if (m === "url") {
-    inner[0].classList.add("active");
-    document.getElementById("hf-url-form").style.display = "block";
-    document.getElementById("hf-repo-form").style.display = "none";
+    if (inner[0]) inner[0].classList.add("active");
+    if (urlForm) urlForm.style.display = "block";
+    if (repoForm) repoForm.style.display = "none";
   } else {
-    inner[1].classList.add("active");
-    document.getElementById("hf-url-form").style.display = "none";
-    document.getElementById("hf-repo-form").style.display = "block";
+    if (inner[1]) inner[1].classList.add("active");
+    if (urlForm) urlForm.style.display = "none";
+    if (repoForm) repoForm.style.display = "block";
   }
   gcLoadSavedHf();
 }

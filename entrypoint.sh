@@ -35,6 +35,7 @@ LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-99}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
 STATE_DIR=/workspace/.guildclaw
+export GUILDCLAW_STATE_DIR="${GUILDCLAW_STATE_DIR:-$STATE_DIR}"
 ACTIVE_FILE="$STATE_DIR/active.json"
 LLAMA_PID_FILE=/tmp/guildclaw-llama.pid
 GGUF_DIR=/workspace/models/gguf

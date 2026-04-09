@@ -224,7 +224,7 @@ INDEX_HTML = """
           </div>
           <div class="gc-token-actions" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" class="btn btn-preset" onclick="gcSaveHubToken()">Сохранить Hub</button>
-            <button type="button" class="btn" style="background:#444;color:#eee;border-color:#555" onclick="gcClearHubToken()">Забыть Hub</button>
+            <button type="button" class="btn" style="background:#444;color:#eee;border-color:#555" onclick="gcClearHubToken()">Удалить токен Hub</button>
           </div>
           <p id="gc_hub_token_status" style="font-size:12px;color:var(--muted);margin:10px 0 0;text-align:center"></p>
           <div class="row" style="margin-top:20px">
@@ -233,13 +233,13 @@ INDEX_HTML = """
           </div>
           <div class="gc-token-actions" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" class="btn btn-hf" onclick="gcSaveHfToken()">Сохранить HF</button>
-            <button type="button" class="btn" style="background:#444;color:#eee;border-color:#555" onclick="gcClearHfToken()">Забыть HF</button>
+            <button type="button" class="btn" style="background:#444;color:#eee;border-color:#555" onclick="gcClearHfToken()">Удалить токен HF</button>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="tabs">
+    <div class="tabs" id="hub-root-tabs">
       <div class="tab active" onclick="switchTab('presets')">🎯 Пресеты</div>
       <div class="tab" onclick="switchTab('huggingface')">🤗 HuggingFace</div>
       <div class="tab" onclick="switchTab('guildclaw')">🦞 Мои GGUF</div>

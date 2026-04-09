@@ -261,18 +261,27 @@ def hub_index_gate(request: Request) -> Optional[HTMLResponse]:
     if _token_from_request(request) == t:
         return None
     return HTMLResponse(
-        "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Model Hub — вход</title></head>"
-        "<body style='background:#1e1e1e;color:#ccc;font-family:system-ui,sans-serif;padding:40px;max-width:420px'>"
-        "<h2 style='color:#e8e8e8'>Guildclaw Model Hub</h2>"
-        "<p>Нужен тот же токен, что в <code>GUILDCLAW_HUB_TOKEN</code> на сервере.</p>"
-        "<p><input id='t' type='password' placeholder='Токен Hub' autocomplete='current-password' "
-        "style='width:100%;padding:12px;background:#111;border:1px solid #444;border-radius:8px;color:#fff;box-sizing:border-box'/></p>"
-        "<p><button type='button' onclick='login()' style='padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer'>Войти</button></p>"
-        "<p style='font-size:13px;color:#888'>После входа токен сохранится в браузере (localStorage), как в Control UI.</p>"
+        "<!DOCTYPE html><html lang='ru'><head><meta charset='utf-8'/>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'/>"
+        "<title>Model Hub — вход</title></head>"
+        "<body style='min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;"
+        "box-sizing:border-box;background:#1e1e1e;color:#ccc;font-family:system-ui,sans-serif;padding:24px'>"
+        "<div style='width:100%;max-width:420px;text-align:center'>"
+        "<h2 style='color:#e8e8e8;margin:0 0 12px'>Guildclaw Model Hub</h2>"
+        "<p style='margin:0 0 20px;line-height:1.5'>Нужен тот же токен, что в "
+        "<code style='word-break:break-all'>GUILDCLAW_HUB_TOKEN</code> на сервере.</p>"
+        "<p style='margin:0 0 12px'>"
+        "<input id='t' type='password' placeholder='Токен Hub' autocomplete='current-password' "
+        "style='width:100%;padding:12px;background:#111;border:1px solid #444;border-radius:8px;color:#fff;box-sizing:border-box'/>"
+        "</p>"
+        "<p style='margin:0 0 16px'>"
+        "<button type='button' onclick='login()' style='padding:10px 22px;background:#3b82f6;color:#fff;"
+        "border:none;border-radius:8px;cursor:pointer;font-size:15px'>Войти</button></p>"
+        "<p style='font-size:13px;color:#888;margin:0;line-height:1.45'>После входа токен сохранится в браузере (localStorage).</p>"
         "<script>"
         "function login(){var v=document.getElementById('t').value.trim();if(!v)return;"
         "try{localStorage.setItem('guildclaw_hub_token',v);}catch(e){}"
         "location.href='/?token='+encodeURIComponent(v);}"
-        "</script></body></html>",
+        "</script></div></body></html>",
         status_code=401,
     )

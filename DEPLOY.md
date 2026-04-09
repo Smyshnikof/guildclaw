@@ -24,7 +24,7 @@ docker run --gpus all \
 ```
 
 - **Model Hub:** `http://localhost:8080/?token=<GUILDCLAW_HUB_TOKEN>` (если токен задан; иначе без query). Токен Hub и опционально HF можно **сохранить в браузере** (блок «Токены» или страница входа при 401) — как в Control UI, без вечного `?token=` в закладке. Интерфейс: вкладки **Пресеты**, **HuggingFace**, **Мои GGUF** (активация / удаление).
-- **Pairing dashboard:** `http://localhost:8081/?token=<секрет>` — одобрение/отклонение **node pairing** через шлюз (`node.pair.list` / `approve` / `reject`). Секрет: **`GUILDCLAW_PAIRING_DASH_TOKEN`**, если задан; иначе используется **`OPENCLAW_WEB_PASSWORD`**. Пока шлюз не поднят, страница покажет ошибку подключения.
+- **Pairing dashboard:** `http://localhost:8081/?token=<секрет>` — одобрение/отклонение **node pairing** через шлюз (`node.pair.list` / `approve` / `reject`). Секрет: **`GUILDCLAW_PAIRING_DASH_TOKEN`**, если задан; иначе используется **`OPENCLAW_WEB_PASSWORD`**. WS-handshake с **Ed25519 device** (файл **`$GUILDCLAW_STATE_DIR/pairing_ws_device.json`**, иначе **`/workspace/.guildclaw/`**), иначе шлюз OpenClaw обнуляет scopes и будет «missing scope: operator.pairing». Пока шлюз не поднят, страница покажет ошибку подключения.
 - **OpenClaw UI:** `http://localhost:18789/?token=<OPENCLAW_WEB_PASSWORD>`
 - **LLM API:** `http://localhost:8000/v1`
 - **JupyterLab:** `http://localhost:8888/lab` — при заданном токене: `…/lab?token=<секрет>`. Токен: **`GUILDCLAW_JUPYTER_TOKEN`**, иначе подставляется **`ACCESS_PASSWORD`** (как в шаблоне ComfyUI/RunPod). Отключить: **`GUILDCLAW_JUPYTER=0`**. Рабочая директория по умолчанию: **`/workspace`**. Лог: `/workspace/logs/jupyterlab.log`.
@@ -96,6 +96,20 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 - OpenClaw: `https://<pod-id>-18789.proxy.runpod.net/?token=<OPENCLAW_WEB_PASSWORD>`
 
 Откройте порты **8081** и **8888** в настройках пода RunPod (HTTP/TCP), если соответствующие прокси не открываются.
+
+### Pod, браузер и «device» для Pairing dashboard
+
+Здесь две разные вещи, их не путайте:
+
+1. **Ваш браузер** — вы только открываете **HTTPS на порт 8081** (страница со списком и кнопками). Это обычный HTTP; токен в URL / Bearer защищает именно **дашборд**, а не WebSocket шлюза OpenClaw. Браузер **не** подключается к `wss://…18789` и **не** является тем «device», о котором говорит протокол шлюза.
+
+2. **Device для WS** — это **процесс Pairing dashboard внутри пода**: он сам ходит на **`ws://127.0.0.1:18789`**, держит ключ Ed25519 в файле **`/workspace/.guildclaw/pairing_ws_device.json`** (на том же томе, что и модели, если вы монтируете `/workspace`). После первого успешного запуска ключ **сохраняется**; пересоздавать его из браузера не нужно. Путь можно переопределить: **`GUILDCLAW_PAIRING_DEVICE_JSON`**.
+
+3. Если шлюз OpenClaw **впервые** видит этот ключ и просит одобрить **device pairing** (редко на loopback, но возможно): зайдите в **OpenClaw Web UI того же пода** (`https://<pod>-18789…` с `OPENCLAW_WEB_PASSWORD`) как оператор и одобрите запрос — это одобрение относится к **«бэкенду дашборда в поде»**, а не к вашему домашнему ПК.
+
+4. **Node pairing** (список на странице :8081) — это уже про **удалённые ноды** (телефон, планшет, другой клиент OpenClaw). Их вы как раз одобряете/отклоняете в этом UI; это не то же самое, что файл `pairing_ws_device.json`.
+
+Итого: **ничего отдельно «в браузере для device» делать не нужно** — достаточно тома `/workspace`, чтобы ключ не терялся между рестартами пода, и при необходимости один раз одобрить device в UI шлюза того же пода.
 
 ---
 
