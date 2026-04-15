@@ -58,6 +58,10 @@
     {
       "key": "TELEGRAM_BOT_TOKEN",
       "value": ""
+    },
+    {
+      "key": "GUILDCLAW_WEB_SEARCH",
+      "value": ""
     }
   ]
 }

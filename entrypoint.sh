@@ -154,6 +154,40 @@ else
     echo "Existing config found at $OPENCLAW_STATE_DIR/openclaw.json — preserving (синхронизируем id модели при необходимости)"
 fi
 
+# web_search (duckduckgo и др.): GUILDCLAW_WEB_SEARCH=1 → provider duckduckgo; иначе явный GUILDCLAW_WEB_SEARCH_PROVIDER=…
+guildclaw_sync_web_search_from_env() {
+    local cfg="${OPENCLAW_STATE_DIR}/openclaw.json"
+    [ -f "$cfg" ] || return 0
+    python3 - <<'PY'
+import json
+import os
+
+cfg = os.path.join(os.environ["OPENCLAW_STATE_DIR"], "openclaw.json")
+prov = (os.environ.get("GUILDCLAW_WEB_SEARCH_PROVIDER") or "").strip()
+flag = (os.environ.get("GUILDCLAW_WEB_SEARCH") or "").strip().lower()
+if not prov and flag in ("1", "true", "yes", "on"):
+    prov = "duckduckgo"
+if not prov:
+    raise SystemExit(0)
+
+with open(cfg, "r", encoding="utf-8") as f:
+    data = json.load(f)
+search = data.setdefault("tools", {}).setdefault("web", {}).setdefault("search", {})
+old = search.get("provider")
+search["provider"] = prov
+if old == prov:
+    raise SystemExit(0)
+with open(cfg, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+try:
+    os.chmod(cfg, 0o600)
+except OSError:
+    pass
+print(f"Guildclaw: tools.web.search.provider = {prov!r} (openclaw.json).")
+PY
+}
+guildclaw_sync_web_search_from_env
+
 # Первый запуск / нет валидной активной модели: скачать дефолтный GGUF и записать active.json (HF_TOKEN подхватится для приватных зеркал).
 guildclaw_bootstrap_default_gguf() {
     [ "${GUILDCLAW_BOOTSTRAP_GGUF:-1}" = "0" ] && return 0
