@@ -45,6 +45,27 @@ def _hub_token() -> str:
     return env_str("MODEL_HUB_TOKEN", "GUILDCLAW_HUB_TOKEN")
 
 
+def hf_authorization_bearer_header(raw_token: str, source_label: str) -> Optional[str]:
+    """
+    Значение заголовка ``Authorization`` для запросов к Hugging Face.
+    В ``http.client``/urllib заголовки кодируются как Latin-1; кириллица или «умные» кавычки
+    в токене дают ``UnicodeEncodeError: 'latin-1' codec can't encode...``.
+    """
+    t = (raw_token or "").strip()
+    if not t:
+        return None
+    try:
+        t.encode("latin-1")
+    except UnicodeEncodeError as e:
+        raise ValueError(
+            f"{source_label}: в токене есть символы вне Latin-1 "
+            "(часто кириллица, кавычки из Word или невидимые символы). "
+            "Нужен настоящий токен Hugging Face: https://huggingface.co/settings/tokens "
+            "(обычно начинается с hf_, только латиница, цифры и _-)."
+        ) from e
+    return f"Bearer {t}"
+
+
 def _token_from_request(request: Request) -> Optional[str]:
     q = request.query_params.get("token")
     auth = request.headers.get("authorization") or ""
@@ -179,7 +200,9 @@ def register_guildclaw(app: Any) -> None:
             headers: dict[str, str] = {}
             hf = os.environ.get("HF_TOKEN", "").strip()
             if hf and "huggingface.co" in url:
-                headers["Authorization"] = f"Bearer {hf}"
+                auth = hf_authorization_bearer_header(hf, "HF_TOKEN")
+                if auth:
+                    headers["Authorization"] = auth
             with httpx.Client(timeout=httpx.Timeout(60.0, read=600.0), follow_redirects=True) as client:
                 with client.stream("GET", url, headers=headers) as r:
                     r.raise_for_status()

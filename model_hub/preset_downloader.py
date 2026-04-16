@@ -25,6 +25,8 @@ import json
 from huggingface_hub import hf_hub_download, login
 import tempfile
 
+from .guildclaw_glue import hf_authorization_bearer_header
+
 app = FastAPI(title="Guildclaw Model Hub")
 
 # Статика (script.js и др.)
@@ -730,7 +732,11 @@ def download_presets(
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
                 if effective_hf and "huggingface.co" in url:
-                    headers["Authorization"] = f"Bearer {effective_hf}"
+                    auth = hf_authorization_bearer_header(
+                        effective_hf, "HF_TOKEN (форма пресета / окружение)"
+                    )
+                    if auth:
+                        headers["Authorization"] = auth
                 response = requests.get(url, stream=True, headers=headers, timeout=300)
                 response.raise_for_status()
                 
@@ -964,7 +970,11 @@ def download_hf(
                     }
                     hf_t = token.strip() if token else os.environ.get("HF_TOKEN", "").strip()
                     if hf_t:
-                        headers["Authorization"] = f"Bearer {hf_t}"
+                        auth = hf_authorization_bearer_header(
+                            hf_t, "HF_TOKEN (форма Hugging Face / окружение)"
+                        )
+                        if auth:
+                            headers["Authorization"] = auth
                     
                     response = requests.get(hf_url, stream=True, headers=headers, timeout=300)
                     response.raise_for_status()
@@ -1024,6 +1034,9 @@ def download_hf(
                     
                     hf_t = token.strip() if token else os.environ.get("HF_TOKEN", "").strip()
                     if hf_t:
+                        hf_authorization_bearer_header(
+                            hf_t, "HF_TOKEN (форма Hugging Face / окружение)"
+                        )
                         login(token=hf_t)
                     
                     from huggingface_hub import snapshot_download
@@ -1097,7 +1110,11 @@ def download_url(
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 }
                 if effective_hf and "huggingface.co" in url:
-                    headers["Authorization"] = f"Bearer {effective_hf}"
+                    auth = hf_authorization_bearer_header(
+                        effective_hf, "HF_TOKEN (форма по URL / окружение)"
+                    )
+                    if auth:
+                        headers["Authorization"] = auth
                 
                 # Обновляем статус - начало скачивания
                 download_status[task_id] = {

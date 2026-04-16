@@ -31,8 +31,9 @@
 | Pairing | `https://<pod-id>-8081.proxy.runpod.net/?token=<PAIRING_DASH_TOKEN>` или тот же токен, что у Web UI |
 | JupyterLab | `https://<pod-id>-8888.proxy.runpod.net/lab?token=<токен>` |
 | OpenClaw | `https://<pod-id>-18789.proxy.runpod.net/?token=<OPENCLAW_WEB_PASSWORD>` |
-| Canvas (HTTP) | `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/canvas/?token=<OPENCLAW_WEB_PASSWORD>` |
-| A2UI | `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/a2ui/?token=<OPENCLAW_WEB_PASSWORD>` |
+| Canvas / A2UI | `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/canvas/` и `…/__openclaw__/a2ui/` — **не** полагайтесь на `?token=` в адресной строке (см. ниже) |
+
+**Canvas и A2UI — почему 401 в браузере.** Корневой Web UI шлюза понимает `?token=<OPENCLAW_WEB_PASSWORD>`. Пути **`/__openclaw__/canvas/`** и **`/__openclaw__/a2ui/`** в актуальном OpenClaw обычно требуют заголовок: **`Authorization: Bearer <OPENCLAW_WEB_PASSWORD>`** или **`x-openclaw-token: <тот же секрет>`** — иначе ответ вида `{"error":{"message":"Unauthorized",…}}`. Удобный вариант: зайти в OpenClaw с `?token=…` и открыть Canvas из интерфейса, если он там есть. Проверка с машины: `curl -sS -H "Authorization: Bearer <OPENCLAW_WEB_PASSWORD>" "https://<pod-id>-18789.proxy.runpod.net/__openclaw__/canvas/"`.
 
 **Не ждите ответа на `…-18790…` / `…-18793…`:** см. таблицу портов выше.
 
