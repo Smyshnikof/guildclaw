@@ -64,6 +64,7 @@
 | `SERVED_MODEL_NAME` | Нет | Алиас модели в OpenClaw/API. **`local-gguf`** = авто-id из имени файла после активации в Hub. |
 | `LLAMA_CTX_SIZE` | Нет | Размер контекста **llama-server** (`-c`) и **`contextWindow`** в OpenClaw. Часто **32768**, если хватает VRAM; не больше, чем реально держит выбранный GGUF. |
 | `LLAMA_N_GPU_LAYERS` | Нет | Слоёв на GPU (**99** ≈ все на GPU). |
+| `LOCAL_LLAMA_VISION` | Нет | **`1`** (в шаблоне) — OpenClaw считает **local-llama** мультимодальным (`input`: text+image), чтобы **Telegram / UI** слали картинки в llama. **`0`** — только текст. |
 | `OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR` | Нет | Буфер компакции чата OpenClaw (цель **20000**; при малом `LLAMA_CTX_SIZE` образ **клампит** значение). |
 | `OPENCLAW_COMPACTION_PROMPT_HEADROOM` | Нет | Запас под системный промпт и тулы (**12000** по умолчанию). |
 | `HF_TOKEN` | Нет | Токен Hugging Face для gated-моделей и лимитов при скачивании из Hub. |
@@ -71,7 +72,7 @@
 | `WEB_SEARCH` | Нет | `1` / `true` / `True` — включить **`duckduckgo`** как провайдер `web_search` в конфиге OpenClaw при старте. |
 
 **Дополнительно (не в minimal JSON шаблона, см. [DEPLOY.md](DEPLOY.md)):**  
-`WEB_SEARCH_PROVIDER`, `HF_TOKEN`-связанные URL дефолтной модели, `BOOTSTRAP_GGUF`, `LLAMA_SERVER_EXTRA_ARGS`, `OPENCLAW_STATE_DIR`, `OPENCLAW_CONTROL_UI_*`, `TELEGRAM_FORCE` и др. Старые имена с префиксом **`GUILDCLAW_*`** в образе по-прежнему подхватываются как fallback.
+`WEB_SEARCH_PROVIDER`, `HF_TOKEN`-связанные URL дефолтной модели, `BOOTSTRAP_GGUF`, `OPENCLAW_LOCAL_MODEL_INPUT`, `LLAMA_SERVER_EXTRA_ARGS`, `OPENCLAW_STATE_DIR`, `OPENCLAW_CONTROL_UI_*`, `TELEGRAM_FORCE` и др. Старые имена с префиксом **`GUILDCLAW_*`** в образе по-прежнему подхватываются как fallback.
 
 ---
 

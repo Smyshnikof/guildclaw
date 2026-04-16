@@ -15,6 +15,32 @@ def _guildclaw_root() -> Path:
     return p if (p / "model_hub").is_dir() else p.parent
 
 
+def _local_llama_input_modes() -> list[str]:
+    """
+    OpenClaw смотрит на models[].input: без «image» шлюз не отдаёт картинки в local-llama (Telegram и др.).
+    OPENCLAW_LOCAL_MODEL_INPUT — JSON-массив строк, например ["text","image"].
+    LOCAL_LLAMA_VISION=1 — шорткат для ["text","image"].
+    """
+    custom = (
+        os.environ.get("OPENCLAW_LOCAL_MODEL_INPUT")
+        or os.environ.get("GUILDCLAW_OPENCLAW_LOCAL_MODEL_INPUT")
+        or ""
+    ).strip()
+    if custom:
+        try:
+            arr = json.loads(custom)
+            if isinstance(arr, list) and arr and all(isinstance(x, str) for x in arr):
+                return arr
+        except json.JSONDecodeError:
+            pass
+    flag = (
+        os.environ.get("LOCAL_LLAMA_VISION") or os.environ.get("GUILDCLAW_LOCAL_LLAMA_VISION") or ""
+    ).strip().lower()
+    if flag in ("1", "true", "yes", "on"):
+        return ["text", "image"]
+    return ["text"]
+
+
 def _compaction_reserve_floor() -> int:
     """Желаемый минимум буфера компакции (env); реальное значение режется под contextWindow."""
     raw = (os.environ.get("OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR") or "20000").strip()
@@ -183,6 +209,7 @@ def main() -> int:
         if display_suffix
         else "Local GGUF (llama.cpp)"
     )
+    inputs = _local_llama_input_modes()
     if not models:
         models.append(
             {
@@ -191,7 +218,7 @@ def main() -> int:
                 "contextWindow": cw,
                 "maxTokens": 4096,
                 "reasoning": False,
-                "input": ["text"],
+                "input": inputs,
                 "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
             }
         )
@@ -199,6 +226,7 @@ def main() -> int:
         models[0]["id"] = sid
         models[0]["name"] = human
         models[0]["contextWindow"] = cw
+        models[0]["input"] = inputs
 
     try:
         cw_eff = int(models[0].get("contextWindow") or cw)

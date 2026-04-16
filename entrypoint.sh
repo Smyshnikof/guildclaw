@@ -81,8 +81,12 @@ DEFAULT_GGUF_FILENAME="${DEFAULT_GGUF_FILENAME:-${GUILDCLAW_DEFAULT_GGUF_FILENAM
 TELEGRAM_FORCE="${TELEGRAM_FORCE:-${GUILDCLAW_TELEGRAM_FORCE:-}}"
 WEB_SEARCH="${WEB_SEARCH:-${GUILDCLAW_WEB_SEARCH:-}}"
 WEB_SEARCH_PROVIDER="${WEB_SEARCH_PROVIDER:-${GUILDCLAW_WEB_SEARCH_PROVIDER:-}}"
+# Vision / multimodal для local-llama в openclaw.json (Telegram, Control UI): models[].input
+OPENCLAW_LOCAL_MODEL_INPUT="${OPENCLAW_LOCAL_MODEL_INPUT:-${GUILDCLAW_OPENCLAW_LOCAL_MODEL_INPUT:-}}"
+LOCAL_LLAMA_VISION="${LOCAL_LLAMA_VISION:-${GUILDCLAW_LOCAL_LLAMA_VISION:-0}}"
 export MODEL_HUB_TOKEN PAIRING_DASH_TOKEN ENABLE_JUPYTER JUPYTER_LAB_TOKEN BOOTSTRAP_GGUF \
-    DEFAULT_GGUF_URL DEFAULT_GGUF_FILENAME TELEGRAM_FORCE WEB_SEARCH WEB_SEARCH_PROVIDER
+    DEFAULT_GGUF_URL DEFAULT_GGUF_FILENAME TELEGRAM_FORCE WEB_SEARCH WEB_SEARCH_PROVIDER \
+    OPENCLAW_LOCAL_MODEL_INPUT LOCAL_LLAMA_VISION
 
 _STATE_DEFAULT=/workspace/.guildclaw
 RUNTIME_STATE_DIR="${RUNTIME_STATE_DIR:-${GUILDCLAW_STATE_DIR:-$_STATE_DEFAULT}}"
@@ -93,7 +97,7 @@ ACTIVE_FILE="$RUNTIME_STATE_DIR/active.json"
 LLAMA_PID_FILE=/tmp/guildclaw-llama.pid
 GGUF_DIR="$MODEL_GGUF_DIR"
 
-export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR OPENCLAW_COMPACTION_PROMPT_HEADROOM
+export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR OPENCLAW_COMPACTION_PROMPT_HEADROOM OPENCLAW_LOCAL_MODEL_INPUT LOCAL_LLAMA_VISION
 
 # ggml-org: libmtmd.so и др. лежат в /app; без этого — «error while loading shared libraries: libmtmd.so.0»
 LLAMA_SERVER_BIN="${LLAMA_SERVER_BIN:-/app/llama-server}"
@@ -128,6 +132,16 @@ chmod 700 "$RUNTIME_STATE_DIR" 2>/dev/null || true
 if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
     echo "Creating OpenClaw configuration (local-llama / llama.cpp)..."
 
+    OC_INPUT_JSON='["text"]'
+    if [ -n "${OPENCLAW_LOCAL_MODEL_INPUT:-}" ]; then
+        OC_INPUT_JSON="${OPENCLAW_LOCAL_MODEL_INPUT}"
+    else
+        _lv="$(printf '%s' "${LOCAL_LLAMA_VISION:-0}" | tr '[:upper:]' '[:lower:]')"
+        case "$_lv" in
+            1|true|yes|on) OC_INPUT_JSON='["text", "image"]' ;;
+        esac
+    fi
+
     if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
         TELEGRAM_CONFIG="\"telegram\": { \"enabled\": true, \"botToken\": \"${TELEGRAM_BOT_TOKEN}\" }"
     else
@@ -157,7 +171,7 @@ if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
           "contextWindow": ${LLAMA_CTX_SIZE},
           "maxTokens": 4096,
           "reasoning": false,
-          "input": ["text"],
+          "input": ${OC_INPUT_JSON},
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
         }]
       }

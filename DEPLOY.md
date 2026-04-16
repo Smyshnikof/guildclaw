@@ -81,6 +81,8 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `OPENCLAW_COMPACTION_PROMPT_HEADROOM` | Минимум токенов, оставляемых под системный промпт, тулы и диалог (**по умолчанию 12000**). Резерв компакции не может съедать этот кусок окна; при необходимости поднимите **`LLAMA_CTX_SIZE`**. |
 | `LLAMA_N_GPU_LAYERS` | Слоёв на GPU (99 ≈ максимум доступных) |
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
+| `LOCAL_LLAMA_VISION` | `1` / `true` — в `openclaw.json` у провайдера **local-llama** в карточке модели выставляется **`"input": ["text", "image"]`**, чтобы шлюз (Telegram, Control UI) **отправлял картинки** в llama.cpp. **`0`** — только текст (старое поведение). В образе по умолчанию **`1`** для совместимости с vision-GGUF вроде Qwen3.5. |
+| `OPENCLAW_LOCAL_MODEL_INPUT` | Опционально: **JSON-массив** строк, например `["text","image"]` — переопределяет `LOCAL_LLAMA_VISION` (если непустой и валидный JSON). |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |
 | `BOOTSTRAP_GGUF` | `1` (по умолчанию): если нет валидного `active.json`, скачать дефолтный GGUF и активировать. `0` — только Hub вручную |
 | `DEFAULT_GGUF_URL` | URL дефолтного `.gguf` (по умолчанию **unsloth/Qwen3.5-4B-GGUF** `Qwen3.5-4B-Q8_0.gguf` на HF) |
@@ -98,7 +100,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `LLAMA_PID_FILE` | Путь к pid-файлу **llama-server** (по умолчанию **`/tmp/guildclaw-llama.pid`**). |
 | `MATE_CWD` | Рабочая директория по умолчанию для **`guildclaw-mate`** (иначе **`/workspace`**). |
 
-**Устаревшие имена** (в entrypoint и Python по-прежнему читаются как fallback): `GUILDCLAW_HUB_TOKEN`, `GUILDCLAW_PAIRING_DASH_TOKEN`, `GUILDCLAW_JUPYTER`, `GUILDCLAW_JUPYTER_TOKEN`, `GUILDCLAW_WEB_SEARCH`, `GUILDCLAW_WEB_SEARCH_PROVIDER`, `GUILDCLAW_BOOTSTRAP_GGUF`, `GUILDCLAW_DEFAULT_GGUF_URL`, `GUILDCLAW_DEFAULT_GGUF_FILENAME`, `GUILDCLAW_TELEGRAM_FORCE`, `GUILDCLAW_STATE_DIR`, `GUILDCLAW_GGUF_DIR`, `GUILDCLAW_LLAMA_PID_FILE`, `GUILDCLAW_SYNC_SCRIPT`, `GUILDCLAW_PAIRING_DEVICE_JSON`, `GUILDCLAW_MATE_CWD`.
+**Устаревшие имена** (в entrypoint и Python по-прежнему читаются как fallback): `GUILDCLAW_HUB_TOKEN`, `GUILDCLAW_PAIRING_DASH_TOKEN`, `GUILDCLAW_JUPYTER`, `GUILDCLAW_JUPYTER_TOKEN`, `GUILDCLAW_WEB_SEARCH`, `GUILDCLAW_WEB_SEARCH_PROVIDER`, `GUILDCLAW_BOOTSTRAP_GGUF`, `GUILDCLAW_DEFAULT_GGUF_URL`, `GUILDCLAW_DEFAULT_GGUF_FILENAME`, `GUILDCLAW_TELEGRAM_FORCE`, `GUILDCLAW_STATE_DIR`, `GUILDCLAW_GGUF_DIR`, `GUILDCLAW_LLAMA_PID_FILE`, `GUILDCLAW_SYNC_SCRIPT`, `GUILDCLAW_PAIRING_DEVICE_JSON`, `GUILDCLAW_MATE_CWD`, `GUILDCLAW_LOCAL_LLAMA_VISION`, `GUILDCLAW_OPENCLAW_LOCAL_MODEL_INPUT`.
 
 Переменная **`RUNPOD_POD_ID`** задаётся RunPod сама; в `openclaw.json` автоматически добавляется `https://<pod>-18789.proxy.runpod.net` в `gateway.controlUi.allowedOrigins` перед стартом шлюза.
 
