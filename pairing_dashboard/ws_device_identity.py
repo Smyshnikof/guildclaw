@@ -8,7 +8,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +15,8 @@ from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+
+from model_hub.stack_env import env_str
 
 
 def _b64url(data: bytes) -> str:
@@ -40,10 +41,10 @@ def _norm_meta(value: str | None) -> str:
 
 
 def _identity_path() -> Path:
-    custom = (os.environ.get("GUILDCLAW_PAIRING_DEVICE_JSON") or "").strip()
+    custom = env_str("PAIRING_DEVICE_JSON", "GUILDCLAW_PAIRING_DEVICE_JSON")
     if custom:
         return Path(custom)
-    base = (os.environ.get("GUILDCLAW_STATE_DIR") or "/workspace/.guildclaw").strip()
+    base = env_str("RUNTIME_STATE_DIR", "GUILDCLAW_STATE_DIR", default="/workspace/.guildclaw")
     return Path(base) / "pairing_ws_device.json"
 
 

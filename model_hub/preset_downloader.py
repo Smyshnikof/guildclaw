@@ -15,7 +15,9 @@ download_status = {}
 
 def _download_dest_dir(_folder: str) -> str:
     """Guildclaw: все файлы — в каталог GGUF (подпапки ComfyUI не используем)."""
-    d = os.environ.get("GUILDCLAW_GGUF_DIR", "/workspace/models/gguf")
+    from .stack_env import env_str
+
+    d = env_str("MODEL_GGUF_DIR", "GUILDCLAW_GGUF_DIR", default="/workspace/models/gguf")
     os.makedirs(d, exist_ok=True)
     return d
 import requests
@@ -217,7 +219,7 @@ INDEX_HTML = """
       </div>
       <div id="gc-token-panel" class="hidden" style="margin-top:16px;padding-top:16px;border-top:1px solid #3a3a3a">
         <div class="gc-token-panel-inner">
-          <p style="font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.45">Hub — если на сервере задан <code>GUILDCLAW_HUB_TOKEN</code>. Hugging Face — по желанию для скачиваний.</p>
+          <p style="font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.45">Hub — если на сервере задан <code>MODEL_HUB_TOKEN</code>. Hugging Face — по желанию для скачиваний.</p>
           <div class="row">
             <label for="gc_hub_token_input">Токен Model Hub</label>
             <input id="gc_hub_token_input" type="password" autocomplete="current-password" placeholder="вставьте и нажмите «Сохранить»" />
@@ -298,7 +300,7 @@ INDEX_HTML = """
           <div class="row">
             <label for="hf_url_folder">Куда кладём</label>
             <select id="hf_url_folder" name="folder" style="width:100%; padding:12px 16px; background:#1a1a1a; border:1px solid #3a3a3a; color:var(--text); border-radius:8px;">
-              <option value="gguf" selected>Каталог GGUF (GUILDCLAW_GGUF_DIR)</option>
+              <option value="gguf" selected>Каталог GGUF (MODEL_GGUF_DIR)</option>
             </select>
           </div>
           <div class="row">
@@ -338,7 +340,7 @@ INDEX_HTML = """
           <div class="row">
             <label for="hf_folder">Куда кладём</label>
             <select id="hf_folder" name="folder" style="width:100%; padding:12px 16px; background:#1a1a1a; border:1px solid #3a3a3a; color:var(--text); border-radius:8px;">
-              <option value="gguf" selected>Каталог GGUF (GUILDCLAW_GGUF_DIR)</option>
+              <option value="gguf" selected>Каталог GGUF (MODEL_GGUF_DIR)</option>
             </select>
           </div>
           <div class="row" style="grid-template-columns:1fr;">

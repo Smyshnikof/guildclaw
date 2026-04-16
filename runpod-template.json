@@ -12,19 +12,19 @@
       "value": ""
     },
     {
-      "key": "GUILDCLAW_HUB_TOKEN",
+      "key": "MODEL_HUB_TOKEN",
       "value": ""
     },
     {
-      "key": "GUILDCLAW_PAIRING_DASH_TOKEN",
+      "key": "PAIRING_DASH_TOKEN",
       "value": ""
     },
     {
-      "key": "GUILDCLAW_JUPYTER",
+      "key": "ENABLE_JUPYTER",
       "value": "1"
     },
     {
-      "key": "GUILDCLAW_JUPYTER_TOKEN",
+      "key": "JUPYTER_LAB_TOKEN",
       "value": ""
     },
     {
@@ -60,7 +60,7 @@
       "value": ""
     },
     {
-      "key": "GUILDCLAW_WEB_SEARCH",
+      "key": "WEB_SEARCH",
       "value": ""
     }
   ]

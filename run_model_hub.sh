@@ -27,9 +27,9 @@ for p in 8080 "$HUB_PORT"; do
 done
 sleep 1
 
-export GUILDCLAW_GGUF_DIR="${GUILDCLAW_GGUF_DIR:-$ROOT/demo_workspace/models/gguf}"
-export GUILDCLAW_STATE_DIR="${GUILDCLAW_STATE_DIR:-$ROOT/demo_workspace/.guildclaw}"
-mkdir -p "$GUILDCLAW_GGUF_DIR" "$GUILDCLAW_STATE_DIR"
+export MODEL_GGUF_DIR="${MODEL_GGUF_DIR:-${GUILDCLAW_GGUF_DIR:-$ROOT/demo_workspace/models/gguf}}"
+export RUNTIME_STATE_DIR="${RUNTIME_STATE_DIR:-${GUILDCLAW_STATE_DIR:-$ROOT/demo_workspace/.guildclaw}}"
+mkdir -p "$MODEL_GGUF_DIR" "$RUNTIME_STATE_DIR"
 export PYTHONPATH="$ROOT"
 
 python -c "import sys; print('Python:', sys.executable)"

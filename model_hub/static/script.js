@@ -42,7 +42,7 @@ function gcHubTokenStatus() {
     if (window.__GC_HUB) {
       el.textContent = "Hub: токен сохранён, запросы к API идут с Bearer.";
     } else {
-      el.textContent = "Hub: токен не задан — нужен, если на сервере включён GUILDCLAW_HUB_TOKEN.";
+      el.textContent = "Hub: токен не задан — нужен, если на сервере включён MODEL_HUB_TOKEN.";
     }
   } catch (e) {
     el.textContent = "";

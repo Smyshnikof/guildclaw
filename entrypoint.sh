@@ -13,7 +13,15 @@ if [ "$LLAMA_API_KEY" = "changeme" ] && [ -n "${VLLM_API_KEY:-}" ] && [ "$VLLM_A
     LLAMA_API_KEY="$VLLM_API_KEY"
 fi
 OPENCLAW_WEB_PASSWORD="${OPENCLAW_WEB_PASSWORD:-${A2GO_AUTH_TOKEN:-changeme}}"
-OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-$HOME/.openclaw}"
+# Состояние на реальном пути: иначе дефолт был $HOME/.openclaw (symlink на /workspace) и
+# OpenClaw отказывает exec: «Refusing to traverse symlink in exec approvals path».
+if [ -z "${OPENCLAW_STATE_DIR:-}" ]; then
+    if [ -d /workspace ]; then
+        OPENCLAW_STATE_DIR=/workspace/.openclaw
+    else
+        OPENCLAW_STATE_DIR="$HOME/.openclaw"
+    fi
+fi
 HF_HOME="${HF_HOME:-/workspace/huggingface}"
 SERVED_MODEL_NAME="${SERVED_MODEL_NAME:-local-gguf}"
 # Дефолт 16k+: OpenClaw agent отказывается работать при contextWindow < 16000 в openclaw.json.
@@ -62,11 +70,28 @@ if [ "$OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR" -gt "$_gc_rmax" ]; then
 fi
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
-STATE_DIR=/workspace/.guildclaw
-export GUILDCLAW_STATE_DIR="${GUILDCLAW_STATE_DIR:-$STATE_DIR}"
-ACTIVE_FILE="$STATE_DIR/active.json"
+# Короткие имена env; префикс GUILDCLAW_* — устаревший fallback (старые поды RunPod).
+MODEL_HUB_TOKEN="${MODEL_HUB_TOKEN:-${GUILDCLAW_HUB_TOKEN:-}}"
+PAIRING_DASH_TOKEN="${PAIRING_DASH_TOKEN:-${GUILDCLAW_PAIRING_DASH_TOKEN:-}}"
+ENABLE_JUPYTER="${ENABLE_JUPYTER:-${GUILDCLAW_JUPYTER:-1}}"
+JUPYTER_LAB_TOKEN="${JUPYTER_LAB_TOKEN:-${GUILDCLAW_JUPYTER_TOKEN:-}}"
+BOOTSTRAP_GGUF="${BOOTSTRAP_GGUF:-${GUILDCLAW_BOOTSTRAP_GGUF:-1}}"
+DEFAULT_GGUF_URL="${DEFAULT_GGUF_URL:-${GUILDCLAW_DEFAULT_GGUF_URL:-}}"
+DEFAULT_GGUF_FILENAME="${DEFAULT_GGUF_FILENAME:-${GUILDCLAW_DEFAULT_GGUF_FILENAME:-gemma-4-E4B-it-Q4_K_M.gguf}}"
+TELEGRAM_FORCE="${TELEGRAM_FORCE:-${GUILDCLAW_TELEGRAM_FORCE:-}}"
+WEB_SEARCH="${WEB_SEARCH:-${GUILDCLAW_WEB_SEARCH:-}}"
+WEB_SEARCH_PROVIDER="${WEB_SEARCH_PROVIDER:-${GUILDCLAW_WEB_SEARCH_PROVIDER:-}}"
+export MODEL_HUB_TOKEN PAIRING_DASH_TOKEN ENABLE_JUPYTER JUPYTER_LAB_TOKEN BOOTSTRAP_GGUF \
+    DEFAULT_GGUF_URL DEFAULT_GGUF_FILENAME TELEGRAM_FORCE WEB_SEARCH WEB_SEARCH_PROVIDER
+
+_STATE_DEFAULT=/workspace/.guildclaw
+RUNTIME_STATE_DIR="${RUNTIME_STATE_DIR:-${GUILDCLAW_STATE_DIR:-$_STATE_DEFAULT}}"
+MODEL_GGUF_DIR="${MODEL_GGUF_DIR:-${GUILDCLAW_GGUF_DIR:-/workspace/models/gguf}}"
+export RUNTIME_STATE_DIR MODEL_GGUF_DIR
+
+ACTIVE_FILE="$RUNTIME_STATE_DIR/active.json"
 LLAMA_PID_FILE=/tmp/guildclaw-llama.pid
-GGUF_DIR=/workspace/models/gguf
+GGUF_DIR="$MODEL_GGUF_DIR"
 
 export OPENCLAW_WEB_PASSWORD HF_HOME OPENCLAW_STATE_DIR LLAMA_API_KEY SERVED_MODEL_NAME LLAMA_CTX_SIZE LLAMA_N_GPU_LAYERS OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR OPENCLAW_COMPACTION_PROMPT_HEADROOM
 
@@ -95,9 +120,10 @@ guildclaw_install_mate_launcher
 BOT_CMD="openclaw"
 
 mkdir -p "$HF_HOME" "$OPENCLAW_STATE_DIR" "$OPENCLAW_STATE_DIR/agents/main/sessions" \
-    "$OPENCLAW_STATE_DIR/credentials" /workspace/openclaw "$STATE_DIR" "$GGUF_DIR"
+    "$OPENCLAW_STATE_DIR/credentials" /workspace/openclaw "$RUNTIME_STATE_DIR" "$GGUF_DIR"
 chmod 700 "$OPENCLAW_STATE_DIR" "$OPENCLAW_STATE_DIR/agents" "$OPENCLAW_STATE_DIR/agents/main" \
     "$OPENCLAW_STATE_DIR/agents/main/sessions" "$OPENCLAW_STATE_DIR/credentials" 2>/dev/null || true
+chmod 700 "$RUNTIME_STATE_DIR" 2>/dev/null || true
 
 if [ ! -f "$OPENCLAW_STATE_DIR/openclaw.json" ]; then
     echo "Creating OpenClaw configuration (local-llama / llama.cpp)..."
@@ -154,7 +180,7 @@ else
     echo "Existing config found at $OPENCLAW_STATE_DIR/openclaw.json — preserving (синхронизируем id модели при необходимости)"
 fi
 
-# web_search (duckduckgo и др.): GUILDCLAW_WEB_SEARCH=1 → provider duckduckgo; иначе явный GUILDCLAW_WEB_SEARCH_PROVIDER=…
+# web_search (duckduckgo и др.): WEB_SEARCH=1 → duckduckgo; иначе явный WEB_SEARCH_PROVIDER=…
 guildclaw_sync_web_search_from_env() {
     local cfg="${OPENCLAW_STATE_DIR}/openclaw.json"
     [ -f "$cfg" ] || return 0
@@ -163,8 +189,8 @@ import json
 import os
 
 cfg = os.path.join(os.environ["OPENCLAW_STATE_DIR"], "openclaw.json")
-prov = (os.environ.get("GUILDCLAW_WEB_SEARCH_PROVIDER") or "").strip()
-flag = (os.environ.get("GUILDCLAW_WEB_SEARCH") or "").strip().lower()
+prov = (os.environ.get("WEB_SEARCH_PROVIDER") or "").strip()
+flag = (os.environ.get("WEB_SEARCH") or "").strip().lower()
 if not prov and flag in ("1", "true", "yes", "on"):
     prov = "duckduckgo"
 if not prov:
@@ -190,9 +216,9 @@ guildclaw_sync_web_search_from_env
 
 # Первый запуск / нет валидной активной модели: скачать дефолтный GGUF и записать active.json (HF_TOKEN подхватится для приватных зеркал).
 guildclaw_bootstrap_default_gguf() {
-    [ "${GUILDCLAW_BOOTSTRAP_GGUF:-1}" = "0" ] && return 0
-    local url="${GUILDCLAW_DEFAULT_GGUF_URL:-}"
-    local name="${GUILDCLAW_DEFAULT_GGUF_FILENAME:-gemma-4-E4B-it-Q4_K_M.gguf}"
+    [ "${BOOTSTRAP_GGUF:-1}" = "0" ] && return 0
+    local url="${DEFAULT_GGUF_URL:-}"
+    local name="${DEFAULT_GGUF_FILENAME:-gemma-4-E4B-it-Q4_K_M.gguf}"
     [ -z "$url" ] && return 0
 
     if [ -f "$ACTIVE_FILE" ]; then
@@ -256,7 +282,7 @@ if not tok:
 with open(cfg, "r", encoding="utf-8") as f:
     data = json.load(f)
 ch = data.setdefault("channels", {}).setdefault("telegram", {})
-if ch.get("enabled") is False and not os.environ.get("GUILDCLAW_TELEGRAM_FORCE"):
+if ch.get("enabled") is False and not (os.environ.get("TELEGRAM_FORCE") or os.environ.get("GUILDCLAW_TELEGRAM_FORCE")):
     raise SystemExit(0)
 old = ch.get("botToken")
 ch["enabled"] = True
@@ -283,14 +309,14 @@ python3 -m uvicorn pairing_dashboard.app:app --host 0.0.0.0 --port 8081 &
 PAIRING_DASH_PID=$!
 
 JUPYTER_PID=""
-if [ "${GUILDCLAW_JUPYTER:-1}" != "0" ]; then
+if [ "${ENABLE_JUPYTER:-1}" != "0" ]; then
     mkdir -p /workspace/logs
-    JUPYTER_TOKEN="${GUILDCLAW_JUPYTER_TOKEN:-}"
+    JUPYTER_TOKEN="${JUPYTER_LAB_TOKEN:-}"
     if [ -z "$JUPYTER_TOKEN" ] && [ -n "${ACCESS_PASSWORD:-}" ]; then
         JUPYTER_TOKEN="$ACCESS_PASSWORD"
     fi
     if [ -z "$JUPYTER_TOKEN" ]; then
-        echo "WARN: JupyterLab стартует без токена. Задайте GUILDCLAW_JUPYTER_TOKEN или ACCESS_PASSWORD (как в шаблоне ComfyUI/RunPod)."
+        echo "WARN: JupyterLab стартует без токена. Задайте JUPYTER_LAB_TOKEN или ACCESS_PASSWORD (как в шаблоне ComfyUI/RunPod)."
     else
         echo "Starting JupyterLab on :8888 (токен задан)..."
     fi
@@ -384,7 +410,7 @@ echo "  Pairing dashboard: http://localhost:8081"
 if [ -n "${JUPYTER_PID:-}" ]; then
     echo "  JupyterLab: http://localhost:8888/lab"
     if [ -n "${JUPYTER_TOKEN:-}" ]; then
-        echo "    Вход: добавьте к URL ?token=<GUILDCLAW_JUPYTER_TOKEN или ACCESS_PASSWORD>"
+        echo "    Вход: добавьте к URL ?token=<JUPYTER_LAB_TOKEN или ACCESS_PASSWORD>"
     fi
 fi
 if [ -n "${RUNPOD_POD_ID:-}" ]; then

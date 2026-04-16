@@ -15,6 +15,8 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from model_hub.stack_env import env_str
+
 from . import gateway_client
 
 app = FastAPI(title="Guildclaw Pairing Dashboard", docs_url=None, redoc_url=None)
@@ -31,7 +33,7 @@ async def _pairing_http_exception(request: Request, exc: HTTPException) -> Any:
             "code{color:#9cf}</style></head><body>"
             f"<h1>Нужен токен</h1><p>{html.escape(str(exc.detail))}</p>"
             "<p>Укажите <code>?token=…</code> в URL или заголовок "
-            "<code>Authorization: Bearer …</code> (секрет из <code>GUILDCLAW_PAIRING_DASH_TOKEN</code> "
+            "<code>Authorization: Bearer …</code> (секрет из <code>PAIRING_DASH_TOKEN</code> "
             "или <code>OPENCLAW_WEB_PASSWORD</code>).</p></body></html>"
         )
         return HTMLResponse(content=body, status_code=401)
@@ -41,7 +43,7 @@ _PAIRING_TTL_MS = 5 * 60 * 1000
 
 
 def _dash_secret() -> str:
-    dash = (os.environ.get("GUILDCLAW_PAIRING_DASH_TOKEN") or "").strip()
+    dash = env_str("PAIRING_DASH_TOKEN", "GUILDCLAW_PAIRING_DASH_TOKEN")
     if dash:
         return dash
     return (os.environ.get("OPENCLAW_WEB_PASSWORD") or os.environ.get("A2GO_AUTH_TOKEN") or "").strip()
@@ -66,7 +68,7 @@ def _check_dash(request: Request, form_token: Optional[str] = None) -> None:
     raise HTTPException(
         status_code=401,
         detail="Нужен токен дашборда: заголовок Authorization: Bearer, query ?token= или поле формы token "
-        "(GUILDCLAW_PAIRING_DASH_TOKEN или OPENCLAW_WEB_PASSWORD).",
+        "(PAIRING_DASH_TOKEN или OPENCLAW_WEB_PASSWORD).",
     )
 
 

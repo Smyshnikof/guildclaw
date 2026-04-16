@@ -116,7 +116,8 @@ def main() -> int:
         return 0
 
     sid = os.environ.get("SERVED_MODEL_NAME", "local-gguf").strip()
-    active = Path("/workspace/.guildclaw/active.json")
+    _rt = (os.environ.get("RUNTIME_STATE_DIR") or os.environ.get("GUILDCLAW_STATE_DIR") or "").strip()
+    active = Path(_rt or "/workspace/.guildclaw") / "active.json"
     display_suffix = ""
     if active.is_file():
         try:

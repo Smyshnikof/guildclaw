@@ -54,11 +54,15 @@ def _chdir(path: Path) -> None:
         sys.exit(1)
 
 
+def _env_alt(primary: str, legacy: str) -> str:
+    return (os.environ.get(primary) or os.environ.get(legacy) or "").strip()
+
+
 def cmd_info(_: argparse.Namespace) -> int:
     pod = os.environ.get("RUNPOD_POD_ID", "").strip()
     pwd = os.environ.get("OPENCLAW_WEB_PASSWORD") or os.environ.get("A2GO_AUTH_TOKEN") or ""
-    hub = os.environ.get("GUILDCLAW_HUB_TOKEN") or ""
-    pair = os.environ.get("GUILDCLAW_PAIRING_DASH_TOKEN") or ""
+    hub = _env_alt("MODEL_HUB_TOKEN", "GUILDCLAW_HUB_TOKEN")
+    pair = _env_alt("PAIRING_DASH_TOKEN", "GUILDCLAW_PAIRING_DASH_TOKEN")
     tg_env = os.environ.get("TELEGRAM_BOT_TOKEN") or ""
 
     print("=== Guildclaw Mate — кратко ===\n")
@@ -84,8 +88,8 @@ def cmd_info(_: argparse.Namespace) -> int:
 
     print("Секреты (env, замаскированы):")
     print(f"  OPENCLAW_WEB_PASSWORD:          {_mask(pwd)}")
-    print(f"  GUILDCLAW_HUB_TOKEN:            {_mask(hub)}")
-    print(f"  GUILDCLAW_PAIRING_DASH_TOKEN:   {_mask(pair)}")
+    print(f"  MODEL_HUB_TOKEN:                {_mask(hub)}")
+    print(f"  PAIRING_DASH_TOKEN:             {_mask(pair)}")
     print(f"  TELEGRAM_BOT_TOKEN (env):       {_mask(tg_env)}\n")
 
     print("Как запускать (любой один вариант):")
@@ -187,7 +191,11 @@ def main() -> int:
     )
     parser.add_argument(
         "--cwd",
-        default=os.environ.get("GUILDCLAW_MATE_CWD", "/workspace"),
+        default=(
+            os.environ.get("MATE_CWD")
+            or os.environ.get("GUILDCLAW_MATE_CWD")
+            or "/workspace"
+        ),
         help="Рабочая директория перед командами (по умолчанию /workspace; для корня ФС укажите /)",
     )
     sub = parser.add_subparsers(dest="command", required=False)

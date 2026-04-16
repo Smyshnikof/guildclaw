@@ -16,17 +16,23 @@ from urllib.parse import urlencode
 import httpx
 
 from .served_id import compute_served_id
+from .stack_env import env_path, env_str
 from fastapi import Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
-GGUF_DIR = Path(os.environ.get("GUILDCLAW_GGUF_DIR", "/workspace/models/gguf"))
-STATE_DIR = Path(os.environ.get("GUILDCLAW_STATE_DIR", "/workspace/.guildclaw"))
+GGUF_DIR = env_path("MODEL_GGUF_DIR", "GUILDCLAW_GGUF_DIR", default="/workspace/models/gguf")
+STATE_DIR = env_path("RUNTIME_STATE_DIR", "GUILDCLAW_STATE_DIR", default="/workspace/.guildclaw")
 ACTIVE_FILE = STATE_DIR / "active.json"
 CATALOG_PATH = Path(__file__).resolve().parent / "catalog.json"
-LLAMA_PID_FILE = Path(os.environ.get("GUILDCLAW_LLAMA_PID_FILE", "/tmp/guildclaw-llama.pid"))
-SYNC_SCRIPT = Path(os.environ.get("GUILDCLAW_SYNC_SCRIPT", "")).resolve() if os.environ.get(
-    "GUILDCLAW_SYNC_SCRIPT", ""
-).strip() else Path(__file__).resolve().parent.parent / "scripts" / "sync_openclaw_llama.py"
+LLAMA_PID_FILE = env_path(
+    "LLAMA_PID_FILE", "GUILDCLAW_LLAMA_PID_FILE", default="/tmp/guildclaw-llama.pid"
+)
+_sync_raw = env_str("OPENCLAW_LLAMA_SYNC_SCRIPT", "GUILDCLAW_SYNC_SCRIPT")
+SYNC_SCRIPT = (
+    Path(_sync_raw).resolve()
+    if _sync_raw
+    else Path(__file__).resolve().parent.parent / "scripts" / "sync_openclaw_llama.py"
+)
 SYNC_SCRIPT_DOCKER = Path("/opt/guildclaw/sync_openclaw_llama.py")
 
 _hub_downloads: dict[str, dict[str, Any]] = {}
@@ -36,7 +42,7 @@ _REPO_RE = re.compile(r"^[\w\-.]+/[\w\-.]+$")
 
 
 def _hub_token() -> str:
-    return os.environ.get("GUILDCLAW_HUB_TOKEN", "").strip()
+    return env_str("MODEL_HUB_TOKEN", "GUILDCLAW_HUB_TOKEN")
 
 
 def _token_from_request(request: Request) -> Optional[str]:
@@ -269,7 +275,7 @@ def hub_index_gate(request: Request) -> Optional[HTMLResponse]:
         "<div style='width:100%;max-width:420px;text-align:center'>"
         "<h2 style='color:#e8e8e8;margin:0 0 12px'>Guildclaw Model Hub</h2>"
         "<p style='margin:0 0 20px;line-height:1.5'>Нужен тот же токен, что в "
-        "<code style='word-break:break-all'>GUILDCLAW_HUB_TOKEN</code> на сервере.</p>"
+        "<code style='word-break:break-all'>MODEL_HUB_TOKEN</code> на сервере.</p>"
         "<p style='margin:0 0 12px'>"
         "<input id='t' type='password' placeholder='Токен Hub' autocomplete='current-password' "
         "style='width:100%;padding:12px;background:#111;border:1px solid #444;border-radius:8px;color:#fff;box-sizing:border-box'/>"

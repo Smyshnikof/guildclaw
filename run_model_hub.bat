@@ -16,10 +16,14 @@ for %%P in (8080 %HUB_PORT%) do (
 )
 timeout /t 1 /nobreak >nul
 
-if not defined GUILDCLAW_GGUF_DIR set "GUILDCLAW_GGUF_DIR=%~dp0demo_workspace\models\gguf"
-if not defined GUILDCLAW_STATE_DIR set "GUILDCLAW_STATE_DIR=%~dp0demo_workspace\.guildclaw"
-mkdir "%GUILDCLAW_GGUF_DIR%" 2>nul
-mkdir "%GUILDCLAW_STATE_DIR%" 2>nul
+if not defined MODEL_GGUF_DIR (
+  if defined GUILDCLAW_GGUF_DIR (set "MODEL_GGUF_DIR=%GUILDCLAW_GGUF_DIR%") else (set "MODEL_GGUF_DIR=%~dp0demo_workspace\models\gguf")
+)
+if not defined RUNTIME_STATE_DIR (
+  if defined GUILDCLAW_STATE_DIR (set "RUNTIME_STATE_DIR=%GUILDCLAW_STATE_DIR%") else (set "RUNTIME_STATE_DIR=%~dp0demo_workspace\.guildclaw")
+)
+mkdir "%MODEL_GGUF_DIR%" 2>nul
+mkdir "%RUNTIME_STATE_DIR%" 2>nul
 set "PYTHONPATH=%~dp0"
 
 where python 2>nul
