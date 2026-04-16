@@ -74,7 +74,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `ENABLE_JUPYTER` | `1` (по умолчанию): запускать JupyterLab на **8888**. `0` — не запускать |
 | `JUPYTER_LAB_TOKEN` | Токен входа в JupyterLab (`?token=…`). Если пусто, используется **`ACCESS_PASSWORD`** (совместимость с шаблоном ComfyUI/RunPod). Если оба пусты — Lab без токена (**не рекомендуется** на публичном прокси) |
 | `ACCESS_PASSWORD` | Опционально: общий пароль/токен для RunPod-шаблонов; при отсутствии `JUPYTER_LAB_TOKEN` подставляется в JupyterLab |
-| `SERVED_MODEL_NAME` | Явный **alias** в API/OpenClaw; значение **`local-gguf`** (по умолчанию) значит *авто*: id строится из имени файла как `local-<slug>-gguf` (например `gemma-4-E4B-it-Q4_K_M.gguf` → `local-gemma-4-e4b-it-q4-k-m-gguf`). Любой другой непустой текст — зафиксированный id |
+| `SERVED_MODEL_NAME` | Явный **alias** в API/OpenClaw; значение **`local-gguf`** (по умолчанию) значит *авто*: id строится из имени файла как `local-<slug>-gguf` (например `Qwen3.5-4B-Q8_0.gguf` → `local-qwen3-5-4b-q8-0-gguf`). Любой другой непустой текст — зафиксированный id |
 | `LLAMA_CTX_SIZE` | Размер контекста для **llama-server** (`-c`) и поля `contextWindow` в OpenClaw (по умолчанию в образе **16384**). OpenClaw в логах предупреждает при **ctx меньше 32000**; для стабильного агента на RunPod часто ставят **32768**, если хватает VRAM. Значения **ниже 16000** поднимаются до **16000**. |
 | `OPENCLAW_AGENT_MIN_CTX` | Нижняя граница для clamp (по умолчанию `16000`); менять только если апстрим OpenClaw изменит требование |
 | `OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR` | Целевой буфер компакции в `agents.*.compaction.reserveTokensFloor` (по умолчанию **20000**). Реальное значение **клампится** под `LLAMA_CTX_SIZE` и под **headroom** (см. ниже), иначе precheck даёт «prompt too large» / сброс чата при **16k**. |
@@ -83,8 +83,8 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |
 | `BOOTSTRAP_GGUF` | `1` (по умолчанию): если нет валидного `active.json`, скачать дефолтный GGUF и активировать. `0` — только Hub вручную |
-| `DEFAULT_GGUF_URL` | URL дефолтного `.gguf` (по умолчанию Gemma 4 E4B Q4_K_M с HF) |
-| `DEFAULT_GGUF_FILENAME` | Имя файла в `/workspace/models/gguf/` |
+| `DEFAULT_GGUF_URL` | URL дефолтного `.gguf` (по умолчанию **unsloth/Qwen3.5-4B-GGUF** `Qwen3.5-4B-Q8_0.gguf` на HF) |
+| `DEFAULT_GGUF_FILENAME` | Имя файла в `/workspace/models/gguf/` (по умолчанию `Qwen3.5-4B-Q8_0.gguf`) |
 | `OPENCLAW_STATE_DIR` | По умолчанию в контейнере с **`/workspace`**: **`/workspace/.openclaw`** (реальный каталог на томе). Раньше дефолт был `~/.openclaw` → symlink, из‑за чего OpenClaw мог отклонять **exec** (`Refusing to traverse symlink in exec approvals path`). Явно задайте переменную, только если нужен другой путь. |
 | `TELEGRAM_BOT_TOKEN` | Токен бота от [@BotFather](https://t.me/BotFather). Можно **не** задавать при создании пода: добавьте переменную в RunPod (**Edit pod → Environment** или шаблон), **перезапустите под** — при старте токен **допишется** в `channels.telegram` внутри `$OPENCLAW_STATE_DIR/openclaw.json` (обычно `/workspace/.openclaw/`). Вручную: тот же файл, ключ `channels.telegram.botToken`, `enabled: true`. Если в конфиге у `telegram` стоит `"enabled": false`, автозапись токена пропускается (чтобы не включать канал против воли); форс: **`TELEGRAM_FORCE=1`**. |
 | `WEB_SEARCH` | `1` / `true` / `yes` / `on` — при каждом старте пода в `openclaw.json` выставляется **`tools.web.search.provider`: `duckduckgo`** ([дока OpenClaw](https://docs.openclaw.ai/tools/duckduckgo-search)). Пусто — не трогаем секцию `tools` (можно задать провайдер вручную). |

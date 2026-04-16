@@ -86,8 +86,8 @@ ENV OPENCLAW_COMPACTION_PROMPT_HEADROOM=12000
 
 # Первый запуск: скачать и активировать GGUF (пока нет валидного active.json). Отключить: BOOTSTRAP_GGUF=0
 ENV BOOTSTRAP_GGUF=1
-ENV DEFAULT_GGUF_URL=https://huggingface.co/lmstudio-community/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf
-ENV DEFAULT_GGUF_FILENAME=gemma-4-E4B-it-Q4_K_M.gguf
+ENV DEFAULT_GGUF_URL=https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q8_0.gguf
+ENV DEFAULT_GGUF_FILENAME=Qwen3.5-4B-Q8_0.gguf
 
 # Совместимость со старым шаблоном RunPod
 ENV VLLM_API_KEY=changeme
