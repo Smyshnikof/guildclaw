@@ -335,14 +335,42 @@ function gcFmtCtx(n) {
   }
 }
 
-function gcSnapCtx(n) {
+/** Ступени контекста: 16384, ×2, пока не выйдем за maxVal (по умолчанию до 1 048 576). */
+function gcCtxDiscreteSteps(maxVal) {
+  var cap =
+    typeof maxVal === "number" && maxVal >= GC_CTX_MIN ? Math.min(maxVal, 1048576) : 1048576;
+  var steps = [];
+  var v = 16384;
+  if (cap < 16384) {
+    if (cap >= GC_CTX_MIN) steps.push(cap);
+    else steps.push(GC_CTX_MIN);
+    return steps;
+  }
+  while (v <= cap) {
+    steps.push(v);
+    if (v >= cap) break;
+    var nx = v * 2;
+    if (nx > cap) break;
+    v = nx;
+  }
+  if (steps.length === 0) steps.push(GC_CTX_MIN);
+  return steps;
+}
+
+function gcSnapCtxToDiscrete(n, maxVal) {
+  var steps = gcCtxDiscreteSteps(maxVal);
   var v = Math.round(Number(n));
-  if (!Number.isFinite(v)) v = GC_CTX_MIN;
-  var step = 1024;
-  v = Math.round(v / step) * step;
-  if (v < GC_CTX_MIN) v = GC_CTX_MIN;
-  if (v > gcCtxMax) v = gcCtxMax;
-  return v;
+  if (!Number.isFinite(v)) return steps[0];
+  var best = steps[0];
+  var bestD = Math.abs(v - best);
+  for (var i = 1; i < steps.length; i++) {
+    var d = Math.abs(v - steps[i]);
+    if (d < bestD) {
+      bestD = d;
+      best = steps[i];
+    }
+  }
+  return best;
 }
 
 function gcFmtInput(arr) {
@@ -391,17 +419,32 @@ function gcUpdateHubPanel(j) {
     var sl = document.getElementById("gc-ctx-slider");
     var num = document.getElementById("gc-ctx-num");
     var maxLab = document.getElementById("gc-ctx-max-label");
+    var lab = document.getElementById("gc-ctx-slider-label");
+    var steps = gcCtxDiscreteSteps(gcCtxMax);
+    if (maxLab) maxLab.textContent = steps.map(gcFmtCtx).join(" → ");
+    var datalist = document.getElementById("gc-ctx-datalist");
+    if (datalist) {
+      datalist.innerHTML = "";
+      for (var si = 0; si < steps.length; si++) {
+        var opt = document.createElement("option");
+        opt.value = String(steps[si]);
+        datalist.appendChild(opt);
+      }
+    }
     if (sl && num) {
-      sl.min = String(GC_CTX_MIN);
-      sl.max = String(gcCtxMax);
-      num.min = String(GC_CTX_MIN);
-      num.max = String(gcCtxMax);
-      if (maxLab) maxLab.textContent = gcFmtCtx(gcCtxMax);
-      var v = gcSnapCtx(j.llama_ctx_effective);
-      sl.value = String(v);
-      num.value = String(v);
-      var lab = document.getElementById("gc-ctx-slider-label");
-      if (lab) lab.textContent = gcFmtCtx(v);
+      var last = steps.length - 1;
+      if (last < 0) last = 0;
+      sl.min = "0";
+      sl.max = String(last);
+      sl.step = "1";
+      num.min = String(steps[0]);
+      num.max = String(steps[last]);
+      var v = gcSnapCtxToDiscrete(j.llama_ctx_effective, gcCtxMax);
+      var idx = steps.indexOf(v);
+      if (idx < 0) idx = 0;
+      sl.value = String(idx);
+      num.value = String(steps[idx]);
+      if (lab) lab.textContent = gcFmtCtx(steps[idx]);
     }
   }
   var inSel = document.getElementById("gc-input-mode");
@@ -421,15 +464,37 @@ function gcWireCtxPanelOnce() {
   if (!sl || !num || !applyBtn || !resetBtn) return;
   window.__GC_CTX_WIRED = true;
   function syncFromSlider() {
-    var v = gcSnapCtx(sl.value);
-    sl.value = String(v);
+    var steps = gcCtxDiscreteSteps(gcCtxMax);
+    if (!steps.length) return;
+    var last = steps.length - 1;
+    var idx = parseInt(sl.value, 10);
+    if (!Number.isFinite(idx)) idx = 0;
+    if (idx < 0) idx = 0;
+    if (idx > last) idx = last;
+    sl.min = "0";
+    sl.max = String(last);
+    sl.step = "1";
+    sl.value = String(idx);
+    var v = steps[idx];
+    num.min = String(steps[0]);
+    num.max = String(steps[last]);
     num.value = String(v);
     if (lab) lab.textContent = gcFmtCtx(v);
   }
   function syncFromNum() {
-    var v = gcSnapCtx(num.value);
+    var steps = gcCtxDiscreteSteps(gcCtxMax);
+    if (!steps.length) return;
+    var last = steps.length - 1;
+    var v = gcSnapCtxToDiscrete(num.value, gcCtxMax);
+    var idx = steps.indexOf(v);
+    if (idx < 0) idx = 0;
+    sl.min = "0";
+    sl.max = String(last);
+    sl.step = "1";
+    sl.value = String(idx);
+    num.min = String(steps[0]);
+    num.max = String(steps[last]);
     num.value = String(v);
-    sl.value = String(v);
     if (lab) lab.textContent = gcFmtCtx(v);
   }
   sl.addEventListener("input", syncFromSlider);
@@ -523,6 +588,7 @@ function gcWireCtxPanelOnce() {
         });
     });
   }
+  syncFromNum();
 }
 
 function refreshGgufList() {
@@ -580,9 +646,9 @@ function refreshGgufList() {
           h += '<input type="hidden" name="token" value="' + escapeAttr(window.__GC_HUB) + '"/>';
         }
         h +=
-          '<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px">ctx<input name="llama_ctx_size" type="number" min="16000" max="' +
+          '<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px">ctx<input name="llama_ctx_size" type="number" min="16384" max="' +
           ctxMax +
-          '" step="512" title="Пусто — только LLAMA_CTX_SIZE из env" style="width:88px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>';
+          '" list="gc-ctx-datalist" title="Пусто — только env; иначе ступень 16k×2 или из подсказок" style="width:88px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>';
         h += gcOpenclawInputSelectHtml(inputModeVal);
         h +=
           '<button type="submit" class="btn btn-preset" style="padding:6px 10px">Активировать</button></form>';

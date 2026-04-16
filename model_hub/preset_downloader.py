@@ -364,14 +364,15 @@ INDEX_HTML = """
         <button type="button" class="btn btn-preset" onclick="refreshGgufList()">Обновить список</button>
         <div id="gc-ctx-panel" style="margin-top:14px;padding:14px;border:1px solid #444;border-radius:10px;background:#141414">
           <h4 style="margin:0 0 6px;font-size:15px">Контекст без смены модели</h4>
-          <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.45">Пишется только <code>llama_ctx_size</code> в <code>active.json</code>, затем перезапуск llama-server. Ползунок до <strong id="gc-ctx-max-label">1&nbsp;048&nbsp;576</strong> — ориентир; реальный предел задают VRAM и модель.</p>
+          <p style="color:var(--muted);font-size:13px;margin:0 0 12px;line-height:1.45">Пишется только <code>llama_ctx_size</code> в <code>active.json</code>, затем перезапуск llama-server. Ползунок — <strong>ступени ×2</strong> от 16&nbsp;384 до верхней границы (по умолчанию до 1&nbsp;048&nbsp;576); не все промежуточные числа, чтобы было понятно, что выбрать. Ступени: <span id="gc-ctx-max-label" style="color:#c9d1d9">16&nbsp;384 → 32&nbsp;768 → … → 1&nbsp;048&nbsp;576</span>. Реальный предел задают VRAM и модель.</p>
+          <datalist id="gc-ctx-datalist"></datalist>
           <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px">
             <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);min-width:220px;flex:1;max-width:520px">
               <span>Значение: <strong id="gc-ctx-slider-label" style="color:#e8e8e8">—</strong></span>
-              <input type="range" id="gc-ctx-slider" min="16000" max="1048576" step="1024" value="16384" style="width:100%" />
+              <input type="range" id="gc-ctx-slider" min="0" max="6" step="1" value="0" style="width:100%" />
             </label>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <label style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px">Число<input id="gc-ctx-num" type="number" min="16000" max="1048576" step="1024" value="16384" style="width:118px;padding:8px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>
+              <label style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px">Число<input id="gc-ctx-num" type="number" min="16384" max="1048576" list="gc-ctx-datalist" value="16384" style="width:118px;padding:8px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>
               <button type="button" class="btn btn-preset" id="gc-ctx-apply">Применить</button>
               <button type="button" class="btn" id="gc-ctx-reset" style="background:#374151;color:#eee">Сбросить на env</button>
             </div>
