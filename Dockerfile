@@ -91,6 +91,10 @@ ENV OPENCLAW_COMPACTION_PROMPT_HEADROOM=12000
 ENV BOOTSTRAP_GGUF=1
 ENV DEFAULT_GGUF_URL=https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q8_0.gguf
 ENV DEFAULT_GGUF_FILENAME=Qwen3.5-4B-Q8_0.gguf
+# Тот же mmproj, что в a2go registry для unsloth/Qwen3.5-4B-GGUF (без него VL в llama-server не поднимается).
+ENV DEFAULT_GGUF_MMPROJ_URL=https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf
+ENV DEFAULT_GGUF_MMPROJ_FILENAME=mmproj-F16.gguf
+ENV BOOTSTRAP_GGUF_MMPROJ=1
 
 # Совместимость со старым шаблоном RunPod
 ENV VLLM_API_KEY=changeme

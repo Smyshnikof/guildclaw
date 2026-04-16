@@ -79,7 +79,7 @@
 ## Быстрый старт
 
 1. Задать **`LLAMA_API_KEY`**, **`OPENCLAW_WEB_PASSWORD`**, **`MODEL_HUB_TOKEN`**.
-2. Открыть **Model Hub** (`…-8080…`) → скачать пресет или вставить URL на `.gguf` → при активации при желании задать **ctx** и режим **input** (только текст / текст+картинка / как в env) → **Активировать** → дождаться перезапуска **llama-server** (ctx и `openclaw_model_input` в **`/workspace/.guildclaw/active.json`**). Для **VL**-моделей с отдельным mmproj: скачать оба файла в **`/workspace/models/gguf/`**, в **`active.json`** добавить **`"llama_mmproj": "/workspace/models/gguf/…-mmproj.gguf"`** (или **`LLAMA_SERVER_EXTRA_ARGS`** с **`--mmproj`**) и перезапустить под.
+2. Открыть **Model Hub** (`…-8080…`) → скачать пресет или вставить URL на `.gguf` → при активации при желании задать **ctx** и режим **input** → **Активировать** → дождаться перезапуска **llama-server**. При первом старте без модели образ по умолчанию качает **Qwen3.5-4B** и **`mmproj-F16.gguf`** (как в a2go). Своя VL-модель: положить **оба** файла в **`/workspace/models/gguf/`** — **`--mmproj`** подставится, если mmproj лежит рядом с активным `.gguf`.
 3. Открыть **OpenClaw** (`…-18789…`) с токеном из `OPENCLAW_WEB_PASSWORD`.
 
 Конфиг OpenClaw на томе: **`/workspace/.openclaw/openclaw.json`**. Проверки: в контейнере **`guildclaw-mate doctor`**.

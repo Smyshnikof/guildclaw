@@ -78,6 +78,10 @@ JUPYTER_LAB_TOKEN="${JUPYTER_LAB_TOKEN:-${GUILDCLAW_JUPYTER_TOKEN:-}}"
 BOOTSTRAP_GGUF="${BOOTSTRAP_GGUF:-${GUILDCLAW_BOOTSTRAP_GGUF:-1}}"
 DEFAULT_GGUF_URL="${DEFAULT_GGUF_URL:-${GUILDCLAW_DEFAULT_GGUF_URL:-}}"
 DEFAULT_GGUF_FILENAME="${DEFAULT_GGUF_FILENAME:-${GUILDCLAW_DEFAULT_GGUF_FILENAME:-Qwen3.5-4B-Q8_0.gguf}}"
+# Второй файл для той же дефолтной Qwen3.5 VL, что в a2go (registry: files + mmproj).
+DEFAULT_GGUF_MMPROJ_URL="${DEFAULT_GGUF_MMPROJ_URL:-${GUILDCLAW_DEFAULT_GGUF_MMPROJ_URL:-}}"
+DEFAULT_GGUF_MMPROJ_FILENAME="${DEFAULT_GGUF_MMPROJ_FILENAME:-${GUILDCLAW_DEFAULT_GGUF_MMPROJ_FILENAME:-mmproj-F16.gguf}}"
+BOOTSTRAP_GGUF_MMPROJ="${BOOTSTRAP_GGUF_MMPROJ:-${GUILDCLAW_BOOTSTRAP_GGUF_MMPROJ:-1}}"
 TELEGRAM_FORCE="${TELEGRAM_FORCE:-${GUILDCLAW_TELEGRAM_FORCE:-}}"
 WEB_SEARCH="${WEB_SEARCH:-${GUILDCLAW_WEB_SEARCH:-}}"
 WEB_SEARCH_PROVIDER="${WEB_SEARCH_PROVIDER:-${GUILDCLAW_WEB_SEARCH_PROVIDER:-}}"
@@ -85,7 +89,8 @@ WEB_SEARCH_PROVIDER="${WEB_SEARCH_PROVIDER:-${GUILDCLAW_WEB_SEARCH_PROVIDER:-}}"
 OPENCLAW_LOCAL_MODEL_INPUT="${OPENCLAW_LOCAL_MODEL_INPUT:-${GUILDCLAW_OPENCLAW_LOCAL_MODEL_INPUT:-}}"
 LOCAL_LLAMA_VISION="${LOCAL_LLAMA_VISION:-${GUILDCLAW_LOCAL_LLAMA_VISION:-0}}"
 export MODEL_HUB_TOKEN PAIRING_DASH_TOKEN ENABLE_JUPYTER JUPYTER_LAB_TOKEN BOOTSTRAP_GGUF \
-    DEFAULT_GGUF_URL DEFAULT_GGUF_FILENAME TELEGRAM_FORCE WEB_SEARCH WEB_SEARCH_PROVIDER \
+    DEFAULT_GGUF_URL DEFAULT_GGUF_FILENAME DEFAULT_GGUF_MMPROJ_URL DEFAULT_GGUF_MMPROJ_FILENAME \
+    BOOTSTRAP_GGUF_MMPROJ TELEGRAM_FORCE WEB_SEARCH WEB_SEARCH_PROVIDER \
     OPENCLAW_LOCAL_MODEL_INPUT LOCAL_LLAMA_VISION
 
 _STATE_DEFAULT=/workspace/.guildclaw
@@ -272,9 +277,94 @@ guildclaw_bootstrap_default_gguf() {
         echo "Файл по умолчанию уже на диске: $dest"
     fi
 
+    local mmproj_url="${DEFAULT_GGUF_MMPROJ_URL:-}"
+    local mmproj_fn="${DEFAULT_GGUF_MMPROJ_FILENAME:-mmproj-F16.gguf}"
+    local mdest="$GGUF_DIR/$mmproj_fn"
+    local have_mmproj=""
+    if [ "${BOOTSTRAP_GGUF_MMPROJ:-1}" != "0" ] && [ -n "$mmproj_url" ]; then
+        if [ ! -f "$mdest" ]; then
+            echo "Скачивание mmproj (мультимодальность; в a2go тот же второй файл из репозитория модели)..."
+            echo "  URL: $mmproj_url"
+            local mtmp="${mdest}.part"
+            rm -f "$mtmp"
+            set +e
+            if [ -n "${HF_TOKEN:-}" ] && [[ "$mmproj_url" == *"huggingface.co"* ]]; then
+                curl -fL --connect-timeout 30 --retry 5 --retry-delay 10 \
+                    -H "Authorization: Bearer ${HF_TOKEN}" -o "$mtmp" "$mmproj_url"
+            else
+                curl -fL --connect-timeout 30 --retry 5 --retry-delay 10 -o "$mtmp" "$mmproj_url"
+            fi
+            local mr=$?
+            set -e
+            if [ "$mr" -ne 0 ] || [ ! -s "$mtmp" ]; then
+                rm -f "$mtmp"
+                echo "WARN: не удалось скачать mmproj (curl exit $mr). Vision не заработает, пока не положите mmproj рядом с GGUF или не задайте llama_mmproj."
+            else
+                mv "$mtmp" "$mdest"
+                echo "Сохранено: $mdest"
+            fi
+        else
+            echo "mmproj по умолчанию уже на диске: $mdest"
+        fi
+        if [ -f "$mdest" ]; then
+            have_mmproj="$mdest"
+        fi
+    fi
+
     sid="$(python3 /opt/guildclaw/scripts/compute_served_id.py "$dest")"
-    jq -n --arg p "$dest" --arg sid "$sid" '{path: $p, served_id: $sid}' > "$ACTIVE_FILE"
-    echo "Автоактивация: $dest (served_id=$sid)"
+    if [ -n "$have_mmproj" ]; then
+        jq -n --arg p "$dest" --arg sid "$sid" --arg m "$have_mmproj" \
+            '{path: $p, served_id: $sid, llama_mmproj: $m}' > "$ACTIVE_FILE"
+        echo "Автоактивация: $dest + mmproj (served_id=$sid)"
+    else
+        jq -n --arg p "$dest" --arg sid "$sid" '{path: $p, served_id: $sid}' > "$ACTIVE_FILE"
+        echo "Автоактивация: $dest (served_id=$sid; без mmproj — только текст, если модель VL)"
+    fi
+}
+
+# Уже был active.json только с основным GGUF (старые поды): докачать mmproj для того же дефолтного имени файла.
+guildclaw_sidecar_mmproj_for_active() {
+    [ "${BOOTSTRAP_GGUF_MMPROJ:-1}" = "0" ] && return 0
+    local url="${DEFAULT_GGUF_MMPROJ_URL:-}"
+    [ -n "$url" ] || return 0
+    [ -f "$ACTIVE_FILE" ] || return 0
+    local p cur
+    p=$(jq -r '.path // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
+    [ -n "$p" ] && [ -f "$p" ] || return 0
+    cur=$(jq -r '.llama_mmproj // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
+    if [ -n "$cur" ] && [ "$cur" != "null" ] && [ -f "$cur" ]; then
+        return 0
+    fi
+    local expect="${DEFAULT_GGUF_FILENAME:-Qwen3.5-4B-Q8_0.gguf}"
+    [ "$(basename "$p")" = "$expect" ] || return 0
+    local mmproj_fn="${DEFAULT_GGUF_MMPROJ_FILENAME:-mmproj-F16.gguf}"
+    local mdest="$GGUF_DIR/$mmproj_fn"
+    if [ ! -f "$mdest" ]; then
+        echo "Докачивание mmproj для уже активной дефолтной Qwen3.5 ($expect)..."
+        local mtmp="${mdest}.part"
+        rm -f "$mtmp"
+        set +e
+        if [ -n "${HF_TOKEN:-}" ] && [[ "$url" == *"huggingface.co"* ]]; then
+            curl -fL --connect-timeout 30 --retry 5 --retry-delay 10 \
+                -H "Authorization: Bearer ${HF_TOKEN}" -o "$mtmp" "$url"
+        else
+            curl -fL --connect-timeout 30 --retry 5 --retry-delay 10 -o "$mtmp" "$url"
+        fi
+        local mr=$?
+        set -e
+        if [ "$mr" -ne 0 ] || [ ! -s "$mtmp" ]; then
+            rm -f "$mtmp"
+            echo "WARN: не удалось докачать mmproj (curl exit $mr)."
+            return 0
+        fi
+        mv "$mtmp" "$mdest"
+        echo "Сохранено: $mdest"
+    fi
+    if [ -f "$mdest" ]; then
+        jq --arg m "$mdest" '. + {llama_mmproj: $m}' "$ACTIVE_FILE" > "${ACTIVE_FILE}.tmp"
+        mv "${ACTIVE_FILE}.tmp" "$ACTIVE_FILE"
+        echo "В active.json добавлен llama_mmproj для VL."
+    fi
 }
 
 python3 /opt/guildclaw/sync_openclaw_llama.py || true
@@ -354,8 +444,38 @@ fi
 
 # Hub сразу, чтобы во время долгого curl на дефолтный GGUF можно было зайти в UI
 guildclaw_bootstrap_default_gguf
+guildclaw_sidecar_mmproj_for_active
 
 python3 /opt/guildclaw/sync_openclaw_llama.py || true
+
+# mmproj: явный путь в active.json или тот же каталог, что основной .gguf (как в a2go — второй файл рядом).
+guildclaw_resolve_mmproj() {
+    local gguf="$1"
+    local active="$2"
+    local mp
+    mp=$(jq -r '.llama_mmproj // empty' "$active" 2>/dev/null || echo "")
+    if [ -n "$mp" ] && [ "$mp" != "null" ] && [ -f "$mp" ]; then
+        printf '%s' "$mp"
+        return 0
+    fi
+    local d
+    d=$(dirname "$gguf")
+    local c
+    for c in "$d/mmproj-F16.gguf" "$d/mmproj-BF16.gguf" "$d/mmproj-f16.gguf"; do
+        if [ -f "$c" ]; then
+            printf '%s' "$c"
+            return 0
+        fi
+    done
+    local f
+    # shellcheck disable=SC2231
+    for f in "$d"/mmproj*.gguf; do
+        [ -f "$f" ] || continue
+        printf '%s' "$f"
+        return 0
+    done
+    printf ''
+}
 
 llama_supervisor() {
     set +e
@@ -386,8 +506,8 @@ llama_supervisor() {
                     fi
                 fi
                 MMPROJ_ARGS=()
-                MP=$(jq -r '.llama_mmproj // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
-                if [ -n "$MP" ] && [ "$MP" != "null" ] && [ -f "$MP" ]; then
+                MP=$(guildclaw_resolve_mmproj "$GGUF" "$ACTIVE_FILE")
+                if [ -n "$MP" ] && [ -f "$MP" ]; then
                     MMPROJ_ARGS=(--mmproj "$MP")
                     echo "Starting llama-server: $GGUF (alias: $SID, -c $EFFECTIVE_CTX, mmproj: $MP)"
                 else
