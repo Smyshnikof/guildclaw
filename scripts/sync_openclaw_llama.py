@@ -93,11 +93,12 @@ def _openclaw_agent_min_ctx() -> int:
 def _effective_context_window(active_override: Optional[object]) -> int:
     """OpenClaw требует contextWindow >= 16000; llama -c должен совпадать. active.json может задать llama_ctx_size."""
     oc_min = _openclaw_agent_min_ctx()
+    max_hub = 1048576
     if active_override is not None and active_override != "":
         try:
             n = int(active_override)
             if n > 0:
-                return max(n, oc_min)
+                return min(max(n, oc_min), max_hub)
         except (TypeError, ValueError):
             pass
     raw = (os.environ.get("LLAMA_CTX_SIZE") or "16384").strip()

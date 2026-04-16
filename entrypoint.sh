@@ -363,6 +363,9 @@ llama_supervisor() {
                                     if [ "$EFFECTIVE_CTX" -lt "$OPENCLAW_AGENT_MIN_CTX" ]; then
                                         EFFECTIVE_CTX="$OPENCLAW_AGENT_MIN_CTX"
                                     fi
+                                    if [ "$EFFECTIVE_CTX" -gt 1048576 ]; then
+                                        EFFECTIVE_CTX=1048576
+                                    fi
                                 fi
                                 ;;
                         esac

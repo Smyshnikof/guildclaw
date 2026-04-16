@@ -92,6 +92,24 @@ def _openclaw_agent_min_ctx() -> int:
         return 16000
 
 
+# Верхняя граница для Hub / active.json (1M токенов); llama.cpp и VRAM могут не вытянуть — пользователь сам оценивает.
+MAX_LLAMA_CTX_SIZE = 1048576
+
+
+def _validate_llama_ctx_int(n: int) -> None:
+    oc_min = _openclaw_agent_min_ctx()
+    if n < oc_min:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Контекст не меньше {oc_min} (минимум OpenClaw).",
+        )
+    if n > MAX_LLAMA_CTX_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"llama_ctx_size слишком большой (макс. {MAX_LLAMA_CTX_SIZE}).",
+        )
+
+
 def _env_llama_ctx_clamped() -> int:
     raw = (os.environ.get("LLAMA_CTX_SIZE") or "16384").strip()
     try:
@@ -112,7 +130,8 @@ def _active_llama_ctx_override() -> Optional[int]:
         n = int(v)
         if n < 1:
             return None
-        return max(n, _openclaw_agent_min_ctx())
+        n = max(n, _openclaw_agent_min_ctx())
+        return min(n, MAX_LLAMA_CTX_SIZE)
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return None
 
@@ -216,6 +235,70 @@ def register_guildclaw(app: Any) -> None:
                 "llama_ctx_env": env_c,
                 "llama_ctx_override": ov,
                 "llama_ctx_effective": ov if ov is not None else env_c,
+                "llama_ctx_max": MAX_LLAMA_CTX_SIZE,
+            }
+        )
+
+    @app.post("/api/apply_ctx")
+    async def api_apply_ctx(
+        request: Request,
+        llama_ctx_size: Optional[str] = Form(None),
+        reset_ctx: Optional[str] = Form(None),
+    ) -> JSONResponse:
+        """Поменять только llama_ctx_size в active.json (без смены .gguf), перезапуск llama-server."""
+        _check_hub(request)
+        if not ACTIVE_FILE.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail="Нет active.json — сначала активируйте модель на вкладке «Мои GGUF».",
+            )
+        try:
+            data = json.loads(ACTIVE_FILE.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            raise HTTPException(status_code=400, detail="Не удалось прочитать active.json.")
+        path_raw = str(data.get("path") or "").strip()
+        if not path_raw:
+            raise HTTPException(status_code=400, detail="В active.json нет path к модели.")
+        pth = Path(path_raw)
+        if not pth.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail="Файл модели по path не найден на диске — активируйте существующий .gguf.",
+            )
+
+        reset = (reset_ctx or "").strip().lower() in ("1", "true", "yes", "on")
+        if reset:
+            data.pop("llama_ctx_size", None)
+            msg = "Переопределение снято: используется LLAMA_CTX_SIZE из окружения."
+        else:
+            raw = (llama_ctx_size or "").strip()
+            if not raw:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Укажите llama_ctx_size или отправьте reset_ctx=1 для сброса.",
+                )
+            try:
+                n = int(raw)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="llama_ctx_size: нужно целое число.") from None
+            _validate_llama_ctx_int(n)
+            data["llama_ctx_size"] = n
+            msg = "Контекст обновлён, llama-server перезапускается."
+
+        with open(ACTIVE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        _restart_llama()
+        _sync_openclaw()
+
+        ov = _active_llama_ctx_override()
+        env_c = _env_llama_ctx_clamped()
+        return JSONResponse(
+            {
+                "ok": True,
+                "message": msg,
+                "llama_ctx_env": env_c,
+                "llama_ctx_override": ov,
+                "llama_ctx_effective": ov if ov is not None else env_c,
             }
         )
 
@@ -302,14 +385,7 @@ def register_guildclaw(app: Any) -> None:
                 n = int(raw_ctx)
             except ValueError:
                 raise HTTPException(400, detail="llama_ctx_size: нужно целое число") from None
-            oc_min = _openclaw_agent_min_ctx()
-            if n < oc_min:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Контекст не меньше {oc_min} (минимум OpenClaw).",
-                )
-            if n > 524288:
-                raise HTTPException(status_code=400, detail="llama_ctx_size слишком большой (макс. 524288).")
+            _validate_llama_ctx_int(n)
             payload["llama_ctx_size"] = n
         with open(ACTIVE_FILE, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)

@@ -148,6 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+  gcWireCtxPanelOnce();
 });
 
 const selectedPresets = new Set();
@@ -323,6 +324,136 @@ function escapeAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+const GC_CTX_MIN = 16000;
+var gcCtxMax = 1048576;
+
+function gcFmtCtx(n) {
+  try {
+    return Number(n).toLocaleString("ru-RU");
+  } catch (e) {
+    return String(n);
+  }
+}
+
+function gcSnapCtx(n) {
+  var v = Math.round(Number(n));
+  if (!Number.isFinite(v)) v = GC_CTX_MIN;
+  var step = 1024;
+  v = Math.round(v / step) * step;
+  if (v < GC_CTX_MIN) v = GC_CTX_MIN;
+  if (v > gcCtxMax) v = gcCtxMax;
+  return v;
+}
+
+function gcUpdateCtxPanel(j) {
+  if (!j || typeof j.llama_ctx_effective !== "number") return;
+  gcCtxMax = typeof j.llama_ctx_max === "number" && j.llama_ctx_max >= GC_CTX_MIN ? j.llama_ctx_max : 1048576;
+  var sl = document.getElementById("gc-ctx-slider");
+  var num = document.getElementById("gc-ctx-num");
+  var maxLab = document.getElementById("gc-ctx-max-label");
+  if (!sl || !num) return;
+  sl.min = String(GC_CTX_MIN);
+  sl.max = String(gcCtxMax);
+  num.min = String(GC_CTX_MIN);
+  num.max = String(gcCtxMax);
+  if (maxLab) maxLab.textContent = gcFmtCtx(gcCtxMax);
+  var v = gcSnapCtx(j.llama_ctx_effective);
+  sl.value = String(v);
+  num.value = String(v);
+  var lab = document.getElementById("gc-ctx-slider-label");
+  if (lab) lab.textContent = gcFmtCtx(v);
+}
+
+function gcWireCtxPanelOnce() {
+  if (window.__GC_CTX_WIRED) return;
+  var sl = document.getElementById("gc-ctx-slider");
+  var num = document.getElementById("gc-ctx-num");
+  var lab = document.getElementById("gc-ctx-slider-label");
+  var msg = document.getElementById("gc-ctx-msg");
+  var applyBtn = document.getElementById("gc-ctx-apply");
+  var resetBtn = document.getElementById("gc-ctx-reset");
+  if (!sl || !num || !applyBtn || !resetBtn) return;
+  window.__GC_CTX_WIRED = true;
+  function syncFromSlider() {
+    var v = gcSnapCtx(sl.value);
+    sl.value = String(v);
+    num.value = String(v);
+    if (lab) lab.textContent = gcFmtCtx(v);
+  }
+  function syncFromNum() {
+    var v = gcSnapCtx(num.value);
+    num.value = String(v);
+    sl.value = String(v);
+    if (lab) lab.textContent = gcFmtCtx(v);
+  }
+  sl.addEventListener("input", syncFromSlider);
+  num.addEventListener("change", syncFromNum);
+  num.addEventListener("input", syncFromNum);
+  function showApplyErr(r, data) {
+    if (!msg) return;
+    var d = data && data.detail;
+    var text =
+      typeof d === "string"
+        ? d
+        : Array.isArray(d)
+          ? d
+              .map(function (x) {
+                return (x && (x.msg || x.message)) || "";
+              })
+              .filter(Boolean)
+              .join("; ")
+          : data && data.message
+            ? data.message
+            : "";
+    msg.textContent = (r && r.ok ? "" : "❌ ") + (text || (r ? "HTTP " + r.status : "Ошибка"));
+  }
+  applyBtn.addEventListener("click", function () {
+    syncFromNum();
+    var fd = new FormData();
+    fd.append("llama_ctx_size", num.value.trim());
+    fetch("/api/apply_ctx", gcFetchInit({ method: "POST", body: fd }))
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { r: r, data: data };
+        });
+      })
+      .then(function (x) {
+        if (!x.r.ok) {
+          showApplyErr(x.r, x.data);
+          return;
+        }
+        if (msg) msg.textContent = x.data.message || "Готово.";
+        gcUpdateCtxPanel(x.data);
+        refreshGgufList();
+      })
+      .catch(function (e) {
+        if (msg) msg.textContent = "❌ " + e.message;
+      });
+  });
+  resetBtn.addEventListener("click", function () {
+    var fd = new FormData();
+    fd.append("reset_ctx", "1");
+    fetch("/api/apply_ctx", gcFetchInit({ method: "POST", body: fd }))
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { r: r, data: data };
+        });
+      })
+      .then(function (x) {
+        if (!x.r.ok) {
+          showApplyErr(x.r, x.data);
+          return;
+        }
+        if (msg) msg.textContent = x.data.message || "Сброшено.";
+        gcUpdateCtxPanel(x.data);
+        refreshGgufList();
+      })
+      .catch(function (e) {
+        if (msg) msg.textContent = "❌ " + e.message;
+      });
+  });
+}
+
 function refreshGgufList() {
   const el = document.getElementById("gc-gguf-list");
   if (!el) return;
@@ -339,21 +470,26 @@ function refreshGgufList() {
     })
     .then((j) => {
       if (!j || !Array.isArray(j.models)) return;
+      gcUpdateCtxPanel(j);
       const envCtx = typeof j.llama_ctx_env === "number" ? j.llama_ctx_env : "";
       const effCtx = typeof j.llama_ctx_effective === "number" ? j.llama_ctx_effective : "";
       const hasOv = j.llama_ctx_override != null && j.llama_ctx_override !== "";
-      if (!j.models.length) {
-        el.innerHTML =
-          '<p style="color:var(--muted)">Нет .gguf — скачайте через пресеты или HuggingFace.</p>';
-        return;
-      }
-      let h =
+      const ctxMax =
+        typeof j.llama_ctx_max === "number" && j.llama_ctx_max >= GC_CTX_MIN ? j.llama_ctx_max : 1048576;
+      const summaryP =
         '<p style="color:var(--muted);font-size:13px;margin:0 0 8px">Сейчас llama <code>-c</code>: <strong>' +
         escapeHtml(String(effCtx)) +
         "</strong>" +
         (hasOv ? " (переопределение в <code>active.json</code>)" : " (из <code>LLAMA_CTX_SIZE</code> в env)") +
         (envCtx !== "" ? " · env по умолчанию: " + escapeHtml(String(envCtx)) : "") +
         "</p>";
+      if (!j.models.length) {
+        el.innerHTML =
+          summaryP +
+          '<p style="color:var(--muted)">Нет .gguf — скачайте через пресеты или HuggingFace.</p>';
+        return;
+      }
+      let h = summaryP;
       h +=
         '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="text-align:left;border-bottom:1px solid #444"><th>Файл</th><th>MB</th><th>Действия</th></tr>';
       for (const m of j.models) {
@@ -365,7 +501,9 @@ function refreshGgufList() {
           h += '<input type="hidden" name="token" value="' + escapeAttr(window.__GC_HUB) + '"/>';
         }
         h +=
-          '<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px">ctx<input name="llama_ctx_size" type="number" min="16000" max="524288" step="512" title="Пусто — только LLAMA_CTX_SIZE из env" style="width:88px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>';
+          '<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px">ctx<input name="llama_ctx_size" type="number" min="16000" max="' +
+          ctxMax +
+          '" step="512" title="Пусто — только LLAMA_CTX_SIZE из env" style="width:88px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>';
         h +=
           '<button type="submit" class="btn btn-preset" style="padding:6px 10px">Активировать</button></form>';
         h += '<form method="post" action="/ui/delete" style="display:inline" onsubmit="return confirm(\'Удалить файл?\');">';
