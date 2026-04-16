@@ -68,6 +68,7 @@ RUN chmod +x /entrypoint.sh /opt/openclaw/entrypoint-common.sh
 
 COPY workspace/ /workspace/openclaw/
 
+# 18789 — OpenClaw gateway (Canvas/A2UI на тех же портах, пути /__openclaw__/…). 18790/18793 — legacy; в актуальном OpenClaw процессов может не быть.
 EXPOSE 8000 8080 8081 8888 18789 18790 18793
 
 ENV LLAMA_API_KEY=changeme

@@ -18,7 +18,7 @@ docker run --gpus all \
   -e OPENCLAW_WEB_PASSWORD="секрет-ui" \
   -e MODEL_HUB_TOKEN="секрет-хаб" \
   -e HF_TOKEN="" \
-  -p 8000:8000 -p 8080:8080 -p 8081:8081 -p 8888:8888 -p 18789:18789 -p 18790:18790 -p 18793:18793 \
+  -p 8000:8000 -p 8080:8080 -p 8081:8081 -p 8888:8888 -p 18789:18789 \
   -v guildclaw_data:/workspace \
   youruser/guildclaw:latest
 ```
@@ -58,9 +58,9 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | 8080  | Model Hub (каталог / URL / удаление) |
 | 8081  | Pairing dashboard (node.pair.* через локальный WS к шлюзу) |
 | 8888  | JupyterLab (ноутбуки, терминал в `/workspace`) |
-| 18789 | OpenClaw gateway |
-| 18790 | OpenClaw Bridge |
-| 18793 | OpenClaw Canvas |
+| 18789 | OpenClaw **gateway** (Web UI, WS, **Canvas / A2UI** по путям `/__openclaw__/canvas/` и `/__openclaw__/a2ui/` — см. [Canvas host](https://docs.openclaw.ai/gateway/configuration-reference#canvas-host)) |
+| 18790 | **Legacy TCP Bridge** — в актуальных сборках OpenClaw **не поднимается** ([Bridge protocol](https://docs.openclaw.ai/gateway/bridge-protocol): «TCP bridge has been removed»). Прокси на **18790** часто даёт **502**. |
+| 18793 | В **официальной** схеме OpenClaw отдельный порт Canvas **не описан**; в образе порт оставлен «на всякий случай», но процесс на нём **может не слушать** → **502**. Используйте **18789** + пути выше. |
 
 ### Переменные окружения
 
@@ -108,9 +108,13 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 - Hub: `https://<pod-id>-8080.proxy.runpod.net/?token=<MODEL_HUB_TOKEN>`
 - Pairing: `https://<pod-id>-8081.proxy.runpod.net/?token=<PAIRING_DASH_TOKEN_или_OPENCLAW_WEB_PASSWORD>`
 - JupyterLab: `https://<pod-id>-8888.proxy.runpod.net/lab?token=<JUPYTER_LAB_TOKEN_или_ACCESS_PASSWORD>`
-- OpenClaw: `https://<pod-id>-18789.proxy.runpod.net/?token=<OPENCLAW_WEB_PASSWORD>`
+- OpenClaw (шлюз + UI): `https://<pod-id>-18789.proxy.runpod.net/?token=<OPENCLAW_WEB_PASSWORD>`
+- Canvas (HTTP под шлюзом): `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/canvas/?token=<OPENCLAW_WEB_PASSWORD>` (при необходимости — заголовок `Authorization: Bearer …`, см. доку OpenClaw)
+- A2UI: `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/a2ui/?token=<OPENCLAW_WEB_PASSWORD>`
 
-Откройте порты **8081** и **8888** в настройках пода RunPod (HTTP/TCP), если соответствующие прокси не открываются.
+**Про 18790 / 18793 и 502:** в текущем OpenClaw **отдельный TCP Bridge на 18790 снят**, а **Canvas** в доке идёт **через порт шлюза 18789**, не через отдельный «Canvas-only» порт ([configuration reference — Canvas host](https://docs.openclaw.ai/gateway/configuration-reference#canvas-host)). Поэтому **Cloudflare 502** на `…-18790…` и `…-18793…` — это не «сломался Guildclaw», а **на этих портах часто просто нет HTTP-сервиса**.
+
+Откройте в RunPod порты, которыми реально пользуетесь: минимум **18789**, **8080**, **8000**, **8081**, **8888**. **18790 / 18793** в списке RunPod не обязательны; их можно убрать, если не хотите путаться с «мёртвыми» прокси.
 
 ### Pod, браузер и «device» для Pairing dashboard
 

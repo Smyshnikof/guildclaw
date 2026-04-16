@@ -19,9 +19,9 @@
 | 8080  | HTTP | **Model Hub** — пресеты Hugging Face, своя ссылка на `.gguf`, активация / удаление модели |
 | 8081  | HTTP | **Pairing dashboard** — очередь **node pairing** (удалённые ноды к шлюзу `:18789`) |
 | 8888  | HTTP | **JupyterLab** — ноутбуки и терминал в `/workspace` |
-| 18789 | HTTP | **OpenClaw Gateway** + Web UI (токен = `OPENCLAW_WEB_PASSWORD`) |
-| 18790 | HTTP | **OpenClaw Bridge** |
-| 18793 | HTTP | **OpenClaw Canvas** |
+| 18789 | HTTP | **OpenClaw Gateway** + Web UI; **Canvas / A2UI** — те же **18789**, пути `/__openclaw__/canvas/` и `/__openclaw__/a2ui/` ([дока](https://docs.openclaw.ai/gateway/configuration-reference#canvas-host)) |
+| 18790 | — | **Legacy Bridge** — в актуальном OpenClaw TCP-слушатель **не поднимается** ([Bridge protocol](https://docs.openclaw.ai/gateway/bridge-protocol)); прокси часто даёт **502**. |
+| 18793 | — | Отдельный Canvas-порт в upstream **не задокументирован**; на нём может **не быть** процесса → **502**. |
 
 **Типичные URL на RunPod** (подставьте `<pod-id>`):
 
@@ -31,6 +31,10 @@
 | Pairing | `https://<pod-id>-8081.proxy.runpod.net/?token=<PAIRING_DASH_TOKEN>` или тот же токен, что у Web UI |
 | JupyterLab | `https://<pod-id>-8888.proxy.runpod.net/lab?token=<токен>` |
 | OpenClaw | `https://<pod-id>-18789.proxy.runpod.net/?token=<OPENCLAW_WEB_PASSWORD>` |
+| Canvas (HTTP) | `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/canvas/?token=<OPENCLAW_WEB_PASSWORD>` |
+| A2UI | `https://<pod-id>-18789.proxy.runpod.net/__openclaw__/a2ui/?token=<OPENCLAW_WEB_PASSWORD>` |
+
+**Не ждите ответа на `…-18790…` / `…-18793…`:** см. таблицу портов выше.
 
 ---
 
