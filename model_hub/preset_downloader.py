@@ -360,7 +360,7 @@ INDEX_HTML = """
       
       <div class="card tab-content" id="guildclaw-tab">
         <h3>Установленные .gguf</h3>
-        <p style="color:var(--muted);font-size:14px;text-align:left;">Активная модель — для llama-server; OpenClaw: провайдер <code>local-llama</code>. При активации: <strong>ctx</strong> (опционально), режим <strong>input</strong> (text / text+image или как в env). Ниже — те же настройки <strong>без смены</strong> файла .gguf.</p>
+        <p style="color:var(--muted);font-size:14px;text-align:left;">Активная модель — для llama-server; OpenClaw: провайдер <code>local-llama</code>. При активации: <strong>ctx</strong> (опционально), режим <strong>input</strong> (text / text+image или как в env). Для <strong>vision</strong>-GGUF с отдельным файлом проекции добавьте в <code>active.json</code> поле <code>llama_mmproj</code> (абсолютный путь) или задайте <code>LLAMA_SERVER_EXTRA_ARGS=--mmproj …</code> в env пода — иначе картинки в чате часто дают ошибку API. Ниже — настройки <strong>без смены</strong> файла .gguf.</p>
         <button type="button" class="btn btn-preset" onclick="refreshGgufList()">Обновить список</button>
         <div id="gc-ctx-panel" style="margin-top:14px;padding:14px;border:1px solid #444;border-radius:10px;background:#141414">
           <h4 style="margin:0 0 6px;font-size:15px">Контекст без смены модели</h4>

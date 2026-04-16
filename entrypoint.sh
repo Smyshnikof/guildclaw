@@ -385,7 +385,14 @@ llama_supervisor() {
                         esac
                     fi
                 fi
-                echo "Starting llama-server: $GGUF (alias: $SID, -c $EFFECTIVE_CTX)"
+                MMPROJ_ARGS=()
+                MP=$(jq -r '.llama_mmproj // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
+                if [ -n "$MP" ] && [ "$MP" != "null" ] && [ -f "$MP" ]; then
+                    MMPROJ_ARGS=(--mmproj "$MP")
+                    echo "Starting llama-server: $GGUF (alias: $SID, -c $EFFECTIVE_CTX, mmproj: $MP)"
+                else
+                    echo "Starting llama-server: $GGUF (alias: $SID, -c $EFFECTIVE_CTX)"
+                fi
                 python3 /opt/guildclaw/sync_openclaw_llama.py || true
                 # shellcheck disable=SC2086
                 "$LLAMA_SERVER_BIN" \
@@ -397,6 +404,7 @@ llama_supervisor() {
                     -ngl "$LLAMA_N_GPU_LAYERS" \
                     --jinja \
                     --alias "$SID" \
+                    "${MMPROJ_ARGS[@]}" \
                     $LLAMA_SERVER_EXTRA_ARGS &
                 echo $! > "$LLAMA_PID_FILE"
                 wait "$(cat "$LLAMA_PID_FILE")"

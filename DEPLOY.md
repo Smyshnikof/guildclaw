@@ -34,7 +34,7 @@ docker run --gpus all \
 
 Порядок: зайти в Hub → скачать пресет или вставить прямой URL на `.gguf` → **Активировать** → подождать перезапуск `llama-server` → пользоваться OpenClaw. Поле `primary` в `openclaw.json` синхронизируется с активной моделью (провайдер `local-llama`, id = `SERVED_MODEL_NAME` / запись в `active.json`).
 
-Файлы GGUF: `/workspace/models/gguf/`. Состояние: **`/workspace/.guildclaw/active.json`** (`path`, `served_id`, опционально `llama_ctx_size`, опционально **`openclaw_model_input`** — массив строк для `models[].input` в OpenClaw).
+Файлы GGUF: `/workspace/models/gguf/`. Состояние: **`/workspace/.guildclaw/active.json`** (`path`, `served_id`, опционально `llama_ctx_size`, опционально **`openclaw_model_input`**, опционально **`llama_mmproj`** — абсолютный путь к файлу проекции vision для **llama-server** [`--mmproj`](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)). Без **`llama_mmproj`** (или без **`LLAMA_SERVER_EXTRA_ARGS`** с `--mmproj …`) большинство **VL**-GGUF в чате с картинкой дают ошибку API → в логах OpenClaw смотрите **failover** / **embedded run agent end**. Флаг **`LOCAL_LLAMA_VISION=1`** и Hub «text+image» только включают отправку изображений **из OpenClaw**; «увидеть» картинку должен **тот же** поднятый `llama-server` (нативный мультимодальный шаблон + mmproj, либо отдельный vision-сервис как в **a2go**). Инструмент **`image`** у агента в других сборках — отдельная ветка (тулы/плагины), не замена mmproj для inline vision.
 
 ---
 
@@ -81,7 +81,7 @@ Secrets: `DOCKERHUB_TOKEN`, variable `DOCKERHUB_USERNAME`. Workflow **Build and 
 | `OPENCLAW_COMPACTION_PROMPT_HEADROOM` | Минимум токенов, оставляемых под системный промпт, тулы и диалог (**по умолчанию 12000**). Резерв компакции не может съедать этот кусок окна; при необходимости поднимите **`LLAMA_CTX_SIZE`**. |
 | `LLAMA_N_GPU_LAYERS` | Слоёв на GPU (99 ≈ максимум доступных) |
 | `LLAMA_SERVER_EXTRA_ARGS` | Доп. флаги `llama-server` (строка) |
-| `LOCAL_LLAMA_VISION` | `1` / `true` — в `openclaw.json` у провайдера **local-llama** в карточке модели выставляется **`"input": ["text", "image"]`**, чтобы шлюз (Telegram, Control UI) **отправлял картинки** в llama.cpp. **`0`** — только текст (старое поведение). В образе по умолчанию **`1`** для совместимости с vision-GGUF вроде Qwen3.5. |
+| `LOCAL_LLAMA_VISION` | `1` / `true` — в `openclaw.json` у провайдера **local-llama** в карточке модели выставляется **`"input": ["text", "image"]`**, чтобы шлюз (Telegram, Control UI) **отправлял картинки** в llama.cpp. **`0`** — только текст (старое поведение). В образе по умолчанию **`1`**. Это **не** включает vision на стороне сервера: для VL-моделей обычно нужен второй файл (**`*.gguf` mmproj**) и **`llama_mmproj`** в **`active.json`** (или **`LLAMA_SERVER_EXTRA_ARGS=--mmproj /workspace/models/gguf/…`**). |
 | `OPENCLAW_LOCAL_MODEL_INPUT` | Опционально: **JSON-массив** строк, например `["text","image"]` — переопределяет `LOCAL_LLAMA_VISION` (если непустой и валидный JSON). |
 | `HF_TOKEN` | Для загрузок с Hugging Face (gated / лимиты) |
 | `BOOTSTRAP_GGUF` | `1` (по умолчанию): если нет валидного `active.json`, скачать дефолтный GGUF и активировать. `0` — только Hub вручную |
