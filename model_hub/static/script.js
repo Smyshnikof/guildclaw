@@ -345,23 +345,69 @@ function gcSnapCtx(n) {
   return v;
 }
 
-function gcUpdateCtxPanel(j) {
-  if (!j || typeof j.llama_ctx_effective !== "number") return;
-  gcCtxMax = typeof j.llama_ctx_max === "number" && j.llama_ctx_max >= GC_CTX_MIN ? j.llama_ctx_max : 1048576;
-  var sl = document.getElementById("gc-ctx-slider");
-  var num = document.getElementById("gc-ctx-num");
-  var maxLab = document.getElementById("gc-ctx-max-label");
-  if (!sl || !num) return;
-  sl.min = String(GC_CTX_MIN);
-  sl.max = String(gcCtxMax);
-  num.min = String(GC_CTX_MIN);
-  num.max = String(gcCtxMax);
-  if (maxLab) maxLab.textContent = gcFmtCtx(gcCtxMax);
-  var v = gcSnapCtx(j.llama_ctx_effective);
-  sl.value = String(v);
-  num.value = String(v);
-  var lab = document.getElementById("gc-ctx-slider-label");
-  if (lab) lab.textContent = gcFmtCtx(v);
+function gcFmtInput(arr) {
+  if (!Array.isArray(arr) || !arr.length) return "—";
+  return arr.join(" + ");
+}
+
+function gcInputModeSelectValue(j) {
+  var ov = j.openclaw_input_override;
+  if (ov == null || typeof ov === "undefined") return "env";
+  if (Array.isArray(ov)) {
+    if (ov.length === 1 && ov[0] === "text") return "text";
+    if (ov.indexOf("image") !== -1) return "vision";
+  }
+  return "env";
+}
+
+function gcOpenclawInputSelectHtml(selected) {
+  var s = selected || "env";
+  var parts = [
+    ["env", "Как в env"],
+    ["text", "Только text"],
+    ["vision", "Text + image"],
+  ];
+  var h =
+    '<select name="openclaw_input_mode" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;max-width:200px" title="OpenClaw models[].input">';
+  for (var i = 0; i < parts.length; i++) {
+    var sel = parts[i][0] === s ? " selected" : "";
+    h +=
+      '<option value="' +
+      escapeAttr(parts[i][0]) +
+      '"' +
+      sel +
+      ">" +
+      escapeHtml(parts[i][1]) +
+      "</option>";
+  }
+  h += "</select>";
+  return h;
+}
+
+function gcUpdateHubPanel(j) {
+  if (!j) return;
+  if (typeof j.llama_ctx_effective === "number") {
+    gcCtxMax = typeof j.llama_ctx_max === "number" && j.llama_ctx_max >= GC_CTX_MIN ? j.llama_ctx_max : 1048576;
+    var sl = document.getElementById("gc-ctx-slider");
+    var num = document.getElementById("gc-ctx-num");
+    var maxLab = document.getElementById("gc-ctx-max-label");
+    if (sl && num) {
+      sl.min = String(GC_CTX_MIN);
+      sl.max = String(gcCtxMax);
+      num.min = String(GC_CTX_MIN);
+      num.max = String(gcCtxMax);
+      if (maxLab) maxLab.textContent = gcFmtCtx(gcCtxMax);
+      var v = gcSnapCtx(j.llama_ctx_effective);
+      sl.value = String(v);
+      num.value = String(v);
+      var lab = document.getElementById("gc-ctx-slider-label");
+      if (lab) lab.textContent = gcFmtCtx(v);
+    }
+  }
+  var inSel = document.getElementById("gc-input-mode");
+  if (inSel && Array.isArray(j.openclaw_input_effective)) {
+    inSel.value = gcInputModeSelectValue(j);
+  }
 }
 
 function gcWireCtxPanelOnce() {
@@ -423,7 +469,7 @@ function gcWireCtxPanelOnce() {
           return;
         }
         if (msg) msg.textContent = x.data.message || "Готово.";
-        gcUpdateCtxPanel(x.data);
+        gcUpdateHubPanel(x.data);
         refreshGgufList();
       })
       .catch(function (e) {
@@ -445,13 +491,38 @@ function gcWireCtxPanelOnce() {
           return;
         }
         if (msg) msg.textContent = x.data.message || "Сброшено.";
-        gcUpdateCtxPanel(x.data);
+        gcUpdateHubPanel(x.data);
         refreshGgufList();
       })
       .catch(function (e) {
         if (msg) msg.textContent = "❌ " + e.message;
       });
   });
+  var inApply = document.getElementById("gc-input-apply");
+  var inSel = document.getElementById("gc-input-mode");
+  if (inApply && inSel) {
+    inApply.addEventListener("click", function () {
+      var fd = new FormData();
+      fd.append("openclaw_input_mode", inSel.value);
+      fetch("/api/apply_input", gcFetchInit({ method: "POST", body: fd }))
+        .then(function (r) {
+          return r.json().then(function (data) {
+            return { r: r, data: data };
+          });
+        })
+        .then(function (x) {
+          if (!x.r.ok) {
+            showApplyErr(x.r, x.data);
+            return;
+          }
+          if (msg) msg.textContent = x.data.message || "Режим input обновлён.";
+          refreshGgufList();
+        })
+        .catch(function (e) {
+          if (msg) msg.textContent = "❌ " + e.message;
+        });
+    });
+  }
 }
 
 function refreshGgufList() {
@@ -470,18 +541,25 @@ function refreshGgufList() {
     })
     .then((j) => {
       if (!j || !Array.isArray(j.models)) return;
-      gcUpdateCtxPanel(j);
+      gcUpdateHubPanel(j);
       const envCtx = typeof j.llama_ctx_env === "number" ? j.llama_ctx_env : "";
       const effCtx = typeof j.llama_ctx_effective === "number" ? j.llama_ctx_effective : "";
       const hasOv = j.llama_ctx_override != null && j.llama_ctx_override !== "";
       const ctxMax =
         typeof j.llama_ctx_max === "number" && j.llama_ctx_max >= GC_CTX_MIN ? j.llama_ctx_max : 1048576;
+      const effIn = Array.isArray(j.openclaw_input_effective) ? j.openclaw_input_effective : [];
+      const hasInOv = j.openclaw_input_override != null;
       const summaryP =
-        '<p style="color:var(--muted);font-size:13px;margin:0 0 8px">Сейчас llama <code>-c</code>: <strong>' +
+        '<p style="color:var(--muted);font-size:13px;margin:0 0 6px">Сейчас llama <code>-c</code>: <strong>' +
         escapeHtml(String(effCtx)) +
         "</strong>" +
-        (hasOv ? " (переопределение в <code>active.json</code>)" : " (из <code>LLAMA_CTX_SIZE</code> в env)") +
-        (envCtx !== "" ? " · env по умолчанию: " + escapeHtml(String(envCtx)) : "") +
+        (hasOv ? " (ctx в <code>active.json</code>)" : " (ctx из <code>LLAMA_CTX_SIZE</code> в env)") +
+        (envCtx !== "" ? " · env ctx: " + escapeHtml(String(envCtx)) : "") +
+        "</p>" +
+        '<p style="color:var(--muted);font-size:13px;margin:0 0 8px">OpenClaw <code>models[].input</code>: <strong>' +
+        escapeHtml(gcFmtInput(effIn)) +
+        "</strong>" +
+        (hasInOv ? " (из <code>active.json</code>)" : " (из env)") +
         "</p>";
       if (!j.models.length) {
         el.innerHTML =
@@ -494,6 +572,7 @@ function refreshGgufList() {
         '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="text-align:left;border-bottom:1px solid #444"><th>Файл</th><th>MB</th><th>Действия</th></tr>';
       for (const m of j.models) {
         const mb = (m.bytes / 1024 / 1024).toFixed(0);
+        const inputModeVal = m.active ? gcInputModeSelectValue(j) : "env";
         h += "<tr><td>" + escapeHtml(m.name) + (m.active ? " <strong>(активна)</strong>" : "") + "</td><td>" + mb + "</td><td>";
         h += '<form method="post" action="/ui/activate" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;margin-right:6px;">';
         h += '<input type="hidden" name="path" value="' + escapeAttr(m.path) + '"/>';
@@ -504,6 +583,7 @@ function refreshGgufList() {
           '<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px">ctx<input name="llama_ctx_size" type="number" min="16000" max="' +
           ctxMax +
           '" step="512" title="Пусто — только LLAMA_CTX_SIZE из env" style="width:88px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>';
+        h += gcOpenclawInputSelectHtml(inputModeVal);
         h +=
           '<button type="submit" class="btn btn-preset" style="padding:6px 10px">Активировать</button></form>';
         h += '<form method="post" action="/ui/delete" style="display:inline" onsubmit="return confirm(\'Удалить файл?\');">';

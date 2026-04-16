@@ -6,39 +6,13 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 
 def _guildclaw_root() -> Path:
     """Образ: /opt/guildclaw/sync_*.py; репозиторий: guildclaw/scripts/sync_*.py."""
     p = Path(__file__).resolve().parent
     return p if (p / "model_hub").is_dir() else p.parent
-
-
-def _local_llama_input_modes() -> list[str]:
-    """
-    OpenClaw смотрит на models[].input: без «image» шлюз не отдаёт картинки в local-llama (Telegram и др.).
-    OPENCLAW_LOCAL_MODEL_INPUT — JSON-массив строк, например ["text","image"].
-    LOCAL_LLAMA_VISION=1 — шорткат для ["text","image"].
-    """
-    custom = (
-        os.environ.get("OPENCLAW_LOCAL_MODEL_INPUT")
-        or os.environ.get("GUILDCLAW_OPENCLAW_LOCAL_MODEL_INPUT")
-        or ""
-    ).strip()
-    if custom:
-        try:
-            arr = json.loads(custom)
-            if isinstance(arr, list) and arr and all(isinstance(x, str) for x in arr):
-                return arr
-        except json.JSONDecodeError:
-            pass
-    flag = (
-        os.environ.get("LOCAL_LLAMA_VISION") or os.environ.get("GUILDCLAW_LOCAL_LLAMA_VISION") or ""
-    ).strip().lower()
-    if flag in ("1", "true", "yes", "on"):
-        return ["text", "image"]
-    return ["text"]
 
 
 def _compaction_reserve_floor() -> int:
@@ -150,6 +124,7 @@ def main() -> int:
     root = _guildclaw_root()
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
+    from model_hub.openclaw_model_input import effective_input_modes
     from model_hub.served_id import compute_served_id
 
     cfg_dir = os.environ.get("OPENCLAW_STATE_DIR", str(Path.home() / ".openclaw"))
@@ -162,6 +137,7 @@ def main() -> int:
     active = Path(_rt or "/workspace/.guildclaw") / "active.json"
     display_suffix = ""
     ctx_override: Optional[object] = None
+    data_a: dict[str, Any] = {}
     if active.is_file():
         try:
             data_a = json.loads(active.read_text(encoding="utf-8"))
@@ -183,7 +159,7 @@ def main() -> int:
                             sid_json = new_sid
             sid = sid_json or sid
         except (OSError, json.JSONDecodeError):
-            pass
+            data_a = {}
 
     try:
         data = json.loads(cfg_path.read_text(encoding="utf-8"))
@@ -209,7 +185,7 @@ def main() -> int:
         if display_suffix
         else "Local GGUF (llama.cpp)"
     )
-    inputs = _local_llama_input_modes()
+    inputs = effective_input_modes(data_a)
     if not models:
         models.append(
             {

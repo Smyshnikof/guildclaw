@@ -360,7 +360,7 @@ INDEX_HTML = """
       
       <div class="card tab-content" id="guildclaw-tab">
         <h3>Установленные .gguf</h3>
-        <p style="color:var(--muted);font-size:14px;text-align:left;">Активная модель — для llama-server; OpenClaw: провайдер <code>local-llama</code>. При активации можно указать <strong>ctx</strong> (размер контекста для <code>-c</code>); пустое поле — брать только <code>LLAMA_CTX_SIZE</code> из окружения. Ниже — смена контекста <strong>без переключения файла</strong>.</p>
+        <p style="color:var(--muted);font-size:14px;text-align:left;">Активная модель — для llama-server; OpenClaw: провайдер <code>local-llama</code>. При активации: <strong>ctx</strong> (опционально), режим <strong>input</strong> (text / text+image или как в env). Ниже — те же настройки <strong>без смены</strong> файла .gguf.</p>
         <button type="button" class="btn btn-preset" onclick="refreshGgufList()">Обновить список</button>
         <div id="gc-ctx-panel" style="margin-top:14px;padding:14px;border:1px solid #444;border-radius:10px;background:#141414">
           <h4 style="margin:0 0 6px;font-size:15px">Контекст без смены модели</h4>
@@ -375,6 +375,17 @@ INDEX_HTML = """
               <button type="button" class="btn btn-preset" id="gc-ctx-apply">Применить</button>
               <button type="button" class="btn" id="gc-ctx-reset" style="background:#374151;color:#eee">Сбросить на env</button>
             </div>
+          </div>
+          <hr style="border:0;border-top:1px solid #333;margin:14px 0" />
+          <h4 style="margin:0 0 6px;font-size:15px">Режим OpenClaw (<code>models[].input</code>)</h4>
+          <p style="color:var(--muted);font-size:13px;margin:0 0 10px;line-height:1.45">В конфиге OpenClaw для мультимодальности используются строки вроде <strong>text</strong>, <strong>image</strong>; у части пайплайнов встречается и <strong>audio</strong>. В Hub задаём только text / text+image или «как в env»; произвольный набор — поле <code>openclaw_model_input</code> в <code>active.json</code> вручную.</p>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+            <select id="gc-input-mode" style="padding:8px 10px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;min-width:240px">
+              <option value="env">Как в env (LOCAL_LLAMA_VISION …)</option>
+              <option value="text">Только text</option>
+              <option value="vision">Text + image</option>
+            </select>
+            <button type="button" class="btn btn-preset" id="gc-input-apply">Применить режим</button>
           </div>
           <p id="gc-ctx-msg" style="margin:12px 0 0;font-size:13px;color:var(--muted);min-height:1.2em"></p>
         </div>

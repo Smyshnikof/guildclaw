@@ -15,6 +15,12 @@ from urllib.parse import urlencode
 
 import httpx
 
+from .openclaw_model_input import (
+    apply_input_mode_to_payload,
+    effective_input_modes,
+    input_modes_from_active,
+    input_modes_from_env,
+)
 from .served_id import compute_served_id
 from .stack_env import env_path, env_str
 from fastapi import Form, HTTPException, Request
@@ -136,6 +142,16 @@ def _active_llama_ctx_override() -> Optional[int]:
         return None
 
 
+def _active_dict() -> dict[str, Any]:
+    if not ACTIVE_FILE.is_file():
+        return {}
+    try:
+        raw = json.loads(ACTIVE_FILE.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
 def _is_active_path(path: str) -> bool:
     if not ACTIVE_FILE.is_file():
         return False
@@ -229,6 +245,10 @@ def register_guildclaw(app: Any) -> None:
         _check_hub(request)
         ov = _active_llama_ctx_override()
         env_c = _env_llama_ctx_clamped()
+        ad = _active_dict()
+        env_in = input_modes_from_env()
+        ov_in = input_modes_from_active(ad)
+        eff_in = effective_input_modes(ad)
         return JSONResponse(
             {
                 "models": _list_gguf(),
@@ -236,6 +256,9 @@ def register_guildclaw(app: Any) -> None:
                 "llama_ctx_override": ov,
                 "llama_ctx_effective": ov if ov is not None else env_c,
                 "llama_ctx_max": MAX_LLAMA_CTX_SIZE,
+                "openclaw_input_env": env_in,
+                "openclaw_input_override": ov_in,
+                "openclaw_input_effective": eff_in,
             }
         )
 
@@ -299,6 +322,52 @@ def register_guildclaw(app: Any) -> None:
                 "llama_ctx_env": env_c,
                 "llama_ctx_override": ov,
                 "llama_ctx_effective": ov if ov is not None else env_c,
+            }
+        )
+
+    @app.post("/api/apply_input")
+    async def api_apply_input(
+        request: Request,
+        openclaw_input_mode: str = Form(...),
+    ) -> JSONResponse:
+        """Поменять только openclaw_model_input в active.json (без смены .gguf)."""
+        _check_hub(request)
+        if not ACTIVE_FILE.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail="Нет active.json — сначала активируйте модель.",
+            )
+        try:
+            data = json.loads(ACTIVE_FILE.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            raise HTTPException(status_code=400, detail="Не удалось прочитать active.json.")
+        path_raw = str(data.get("path") or "").strip()
+        if not path_raw:
+            raise HTTPException(status_code=400, detail="В active.json нет path к модели.")
+        pth = Path(path_raw)
+        if not pth.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail="Файл модели по path не найден на диске.",
+            )
+        try:
+            apply_input_mode_to_payload(data, openclaw_input_mode)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+        with open(ACTIVE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        _restart_llama()
+        _sync_openclaw()
+
+        ad = _active_dict()
+        return JSONResponse(
+            {
+                "ok": True,
+                "message": "Режим input обновлён, llama-server перезапускается.",
+                "openclaw_input_env": input_modes_from_env(),
+                "openclaw_input_override": input_modes_from_active(ad),
+                "openclaw_input_effective": effective_input_modes(ad),
             }
         )
 
@@ -371,6 +440,7 @@ def register_guildclaw(app: Any) -> None:
         path: str = Form(...),
         token: Optional[str] = Form(None),
         llama_ctx_size: Optional[str] = Form(None),
+        openclaw_input_mode: str = Form("env"),
     ) -> RedirectResponse:
         _check_hub(request, token)
         p = Path(path).resolve()
@@ -387,6 +457,10 @@ def register_guildclaw(app: Any) -> None:
                 raise HTTPException(400, detail="llama_ctx_size: нужно целое число") from None
             _validate_llama_ctx_int(n)
             payload["llama_ctx_size"] = n
+        try:
+            apply_input_mode_to_payload(payload, openclaw_input_mode)
+        except ValueError as e:
+            raise HTTPException(400, detail=str(e)) from e
         with open(ACTIVE_FILE, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
         _restart_llama()

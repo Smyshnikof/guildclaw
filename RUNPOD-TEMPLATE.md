@@ -79,7 +79,7 @@
 ## Быстрый старт
 
 1. Задать **`LLAMA_API_KEY`**, **`OPENCLAW_WEB_PASSWORD`**, **`MODEL_HUB_TOKEN`**.
-2. Открыть **Model Hub** (`…-8080…`) → скачать пресет или вставить URL на `.gguf` → **Активировать** → дождаться перезапуска **llama-server**.
+2. Открыть **Model Hub** (`…-8080…`) → скачать пресет или вставить URL на `.gguf` → при активации при желании задать **ctx** и режим **input** (только текст / текст+картинка / как в env) → **Активировать** → дождаться перезапуска **llama-server** (ctx и `openclaw_model_input` пишутся в **`/workspace/.guildclaw/active.json`**).
 3. Открыть **OpenClaw** (`…-18789…`) с токеном из `OPENCLAW_WEB_PASSWORD`.
 
 Конфиг OpenClaw на томе: **`/workspace/.openclaw/openclaw.json`**. Проверки: в контейнере **`guildclaw-mate doctor`**.

@@ -23,7 +23,7 @@ docker run --gpus all \
   youruser/guildclaw:latest
 ```
 
-- **Model Hub:** `http://localhost:8080/?token=<MODEL_HUB_TOKEN>` (если токен задан; иначе без query). Токен Hub и опционально HF можно **сохранить в браузере** (блок «Токены» или страница входа при 401) — как в Control UI, без вечного `?token=` в закладке. Интерфейс: вкладки **Пресеты**, **HuggingFace**, **Мои GGUF** (активация / удаление). На вкладке **Мои GGUF** при активации можно задать **ctx** (контекст для `llama-server -c`); значение пишется в **`active.json`** как `llama_ctx_size`. Пустое поле — использовать только **`LLAMA_CTX_SIZE`** из окружения. Отдельно: блок **«Контекст без смены модели»** (ползунок + «Применить» / «Сбросить на env») вызывает **`POST /api/apply_ctx`** — меняется только `llama_ctx_size` в `active.json`, файл `.gguf` не трогается.
+- **Model Hub:** `http://localhost:8080/?token=<MODEL_HUB_TOKEN>` (если токен задан; иначе без query). Токен Hub и опционально HF можно **сохранить в браузере** (блок «Токены» или страница входа при 401) — как в Control UI, без вечного `?token=` в закладке. Интерфейс: вкладки **Пресеты**, **HuggingFace**, **Мои GGUF** (активация / удаление). На вкладке **Мои GGUF** при активации: **ctx** → `llama_ctx_size` в **`active.json`** (пусто = только **`LLAMA_CTX_SIZE`** из env); режим **input** (text / text+image / как в env) → **`openclaw_model_input`** в **`active.json`** (перекрывает **`LOCAL_LLAMA_VISION`** для синка в `openclaw.json`). Без смены .gguf: **`POST /api/apply_ctx`** (только ctx) и **`POST /api/apply_input`** (только режим input).
 - **Pairing dashboard (:8081):** только **node pairing** — то же хранилище, что и `openclaw nodes pending` / `node.pair.list`. Запись в очереди появляется только если мобильный (или другой) клиент к **WebSocket шлюза :18789** вызывает **`node.pair.request`** ([дока](https://openclaws.io/docs/gateway/pairing/)); вход в Control UI как **operator** сюда не попадает — это **`openclaw devices …`**. На RunPod нода должна целиться в **`wss://<pod-id>-18789.proxy.runpod.net`**, токен как у шлюза (**`OPENCLAW_WEB_PASSWORD`**). Дашборд внутри пода ходит на **`OPENCLAW_GATEWAY_WS`** (по умолчанию `ws://127.0.0.1:18789`). Секрет страницы: **`PAIRING_DASH_TOKEN`** или **`OPENCLAW_WEB_PASSWORD`**. Для RPC нужен Ed25519 device (**`pairing_ws_device.json`**), иначе «missing scope: operator.pairing».
 - **OpenClaw UI:** `http://localhost:18789/?token=<OPENCLAW_WEB_PASSWORD>`
 - **Canvas / A2UI** (те же **18789**, пути `/__openclaw__/canvas/`, `/__openclaw__/a2ui/`): для прямых запросов к этим URL **`?token=` в адресной строке обычно не подходит`** — нужен заголовок **`Authorization: Bearer <OPENCLAW_WEB_PASSWORD>`** или **`x-openclaw-token: …`**. Пример: `curl -sS -H "Authorization: Bearer <OPENCLAW_WEB_PASSWORD>" "http://127.0.0.1:18789/__openclaw__/canvas/"`.
@@ -34,7 +34,7 @@ docker run --gpus all \
 
 Порядок: зайти в Hub → скачать пресет или вставить прямой URL на `.gguf` → **Активировать** → подождать перезапуск `llama-server` → пользоваться OpenClaw. Поле `primary` в `openclaw.json` синхронизируется с активной моделью (провайдер `local-llama`, id = `SERVED_MODEL_NAME` / запись в `active.json`).
 
-Файлы GGUF: `/workspace/models/gguf/`. Состояние: `/workspace/.guildclaw/active.json`.
+Файлы GGUF: `/workspace/models/gguf/`. Состояние: **`/workspace/.guildclaw/active.json`** (`path`, `served_id`, опционально `llama_ctx_size`, опционально **`openclaw_model_input`** — массив строк для `models[].input` в OpenClaw).
 
 ---
 
