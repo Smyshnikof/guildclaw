@@ -351,7 +351,24 @@ llama_supervisor() {
             SID=$(jq -r '.served_id // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
             [ -n "$SID" ] || SID="$SERVED_MODEL_NAME"
             if [ -n "$GGUF" ] && [ -f "$GGUF" ]; then
-                echo "Starting llama-server: $GGUF (alias: $SID)"
+                EFFECTIVE_CTX="${LLAMA_CTX_SIZE}"
+                if [ -f "$ACTIVE_FILE" ]; then
+                    OV=$(jq -r '.llama_ctx_size // empty' "$ACTIVE_FILE" 2>/dev/null || echo "")
+                    if [ -n "$OV" ] && [ "$OV" != "null" ]; then
+                        case "$OV" in
+                            ''|*[!0-9]*) ;;
+                            *)
+                                if [ "$OV" -ge 1 ] 2>/dev/null; then
+                                    EFFECTIVE_CTX="$OV"
+                                    if [ "$EFFECTIVE_CTX" -lt "$OPENCLAW_AGENT_MIN_CTX" ]; then
+                                        EFFECTIVE_CTX="$OPENCLAW_AGENT_MIN_CTX"
+                                    fi
+                                fi
+                                ;;
+                        esac
+                    fi
+                fi
+                echo "Starting llama-server: $GGUF (alias: $SID, -c $EFFECTIVE_CTX)"
                 python3 /opt/guildclaw/sync_openclaw_llama.py || true
                 # shellcheck disable=SC2086
                 "$LLAMA_SERVER_BIN" \
@@ -359,7 +376,7 @@ llama_supervisor() {
                     --host 0.0.0.0 \
                     --port 8000 \
                     --api-key "$LLAMA_API_KEY" \
-                    -c "$LLAMA_CTX_SIZE" \
+                    -c "$EFFECTIVE_CTX" \
                     -ngl "$LLAMA_N_GPU_LAYERS" \
                     --jinja \
                     --alias "$SID" \

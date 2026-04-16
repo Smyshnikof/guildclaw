@@ -85,6 +85,38 @@ def _check_hub(request: Request, form_token: Optional[str] = None) -> None:
     raise HTTPException(status_code=401, detail="Invalid or missing hub token")
 
 
+def _openclaw_agent_min_ctx() -> int:
+    try:
+        return max(int((os.environ.get("OPENCLAW_AGENT_MIN_CTX") or "16000").strip()), 1)
+    except ValueError:
+        return 16000
+
+
+def _env_llama_ctx_clamped() -> int:
+    raw = (os.environ.get("LLAMA_CTX_SIZE") or "16384").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 16384
+    return max(n, _openclaw_agent_min_ctx())
+
+
+def _active_llama_ctx_override() -> Optional[int]:
+    if not ACTIVE_FILE.is_file():
+        return None
+    try:
+        d = json.loads(ACTIVE_FILE.read_text(encoding="utf-8"))
+        v = d.get("llama_ctx_size")
+        if v is None or v == "":
+            return None
+        n = int(v)
+        if n < 1:
+            return None
+        return max(n, _openclaw_agent_min_ctx())
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+
+
 def _is_active_path(path: str) -> bool:
     if not ACTIVE_FILE.is_file():
         return False
@@ -176,7 +208,16 @@ def register_guildclaw(app: Any) -> None:
     @app.get("/api/models")
     def api_models(request: Request) -> JSONResponse:
         _check_hub(request)
-        return JSONResponse({"models": _list_gguf()})
+        ov = _active_llama_ctx_override()
+        env_c = _env_llama_ctx_clamped()
+        return JSONResponse(
+            {
+                "models": _list_gguf(),
+                "llama_ctx_env": env_c,
+                "llama_ctx_override": ov,
+                "llama_ctx_effective": ov if ov is not None else env_c,
+            }
+        )
 
     @app.get("/api/downloads/{job_id}")
     def api_download_status(job_id: str, request: Request) -> JSONResponse:
@@ -246,6 +287,7 @@ def register_guildclaw(app: Any) -> None:
         request: Request,
         path: str = Form(...),
         token: Optional[str] = Form(None),
+        llama_ctx_size: Optional[str] = Form(None),
     ) -> RedirectResponse:
         _check_hub(request, token)
         p = Path(path).resolve()
@@ -253,8 +295,24 @@ def register_guildclaw(app: Any) -> None:
             raise HTTPException(400)
         sid = compute_served_id(str(p))
         STATE_DIR.mkdir(parents=True, exist_ok=True)
+        payload: dict[str, Any] = {"path": str(p), "served_id": sid}
+        raw_ctx = (llama_ctx_size or "").strip()
+        if raw_ctx:
+            try:
+                n = int(raw_ctx)
+            except ValueError:
+                raise HTTPException(400, detail="llama_ctx_size: нужно целое число") from None
+            oc_min = _openclaw_agent_min_ctx()
+            if n < oc_min:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Контекст не меньше {oc_min} (минимум OpenClaw).",
+                )
+            if n > 524288:
+                raise HTTPException(status_code=400, detail="llama_ctx_size слишком большой (макс. 524288).")
+            payload["llama_ctx_size"] = n
         with open(ACTIVE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"path": str(p), "served_id": sid}, f, indent=2)
+            json.dump(payload, f, indent=2)
         _restart_llama()
         _sync_openclaw()
         return _redirect_home(

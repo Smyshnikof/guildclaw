@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 
 def _guildclaw_root() -> Path:
@@ -82,14 +83,28 @@ def _ensure_compaction_reserve(data: dict, context_window: int) -> None:
         compaction["reserveTokensFloor"] = _clamp_compaction_reserve(merged, context_window)
 
 
-def _effective_context_window() -> int:
-    """OpenClaw требует contextWindow >= 16000 в описании модели; llama -c должен совпадать."""
+def _openclaw_agent_min_ctx() -> int:
+    try:
+        return max(int((os.environ.get("OPENCLAW_AGENT_MIN_CTX") or "16000").strip()), 1)
+    except ValueError:
+        return 16000
+
+
+def _effective_context_window(active_override: Optional[object]) -> int:
+    """OpenClaw требует contextWindow >= 16000; llama -c должен совпадать. active.json может задать llama_ctx_size."""
+    oc_min = _openclaw_agent_min_ctx()
+    if active_override is not None and active_override != "":
+        try:
+            n = int(active_override)
+            if n > 0:
+                return max(n, oc_min)
+        except (TypeError, ValueError):
+            pass
     raw = (os.environ.get("LLAMA_CTX_SIZE") or "16384").strip()
     try:
         n = int(raw)
     except ValueError:
         n = 16384
-    oc_min = int((os.environ.get("OPENCLAW_AGENT_MIN_CTX") or "16000").strip())
     return max(n, oc_min)
 
 
@@ -119,9 +134,11 @@ def main() -> int:
     _rt = (os.environ.get("RUNTIME_STATE_DIR") or os.environ.get("GUILDCLAW_STATE_DIR") or "").strip()
     active = Path(_rt or "/workspace/.guildclaw") / "active.json"
     display_suffix = ""
+    ctx_override: Optional[object] = None
     if active.is_file():
         try:
             data_a = json.loads(active.read_text(encoding="utf-8"))
+            ctx_override = data_a.get("llama_ctx_size")
             path_a = data_a.get("path")
             sid_json = str(data_a.get("served_id") or "").strip()
             if path_a:
@@ -150,7 +167,7 @@ def main() -> int:
         "primary"
     ] = f"local-llama/{sid}"
 
-    cw = _effective_context_window()
+    cw = _effective_context_window(ctx_override)
     prov = (
         data.setdefault("models", {})
         .setdefault("providers", {})

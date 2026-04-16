@@ -360,7 +360,7 @@ INDEX_HTML = """
       
       <div class="card tab-content" id="guildclaw-tab">
         <h3>Установленные .gguf</h3>
-        <p style="color:var(--muted);font-size:14px;text-align:left;">Активная модель — для llama-server; OpenClaw: провайдер <code>local-llama</code>.</p>
+        <p style="color:var(--muted);font-size:14px;text-align:left;">Активная модель — для llama-server; OpenClaw: провайдер <code>local-llama</code>. При активации можно указать <strong>ctx</strong> (размер контекста для <code>-c</code>); пустое поле — брать только <code>LLAMA_CTX_SIZE</code> из окружения.</p>
         <button type="button" class="btn btn-preset" onclick="refreshGgufList()">Обновить список</button>
         <div id="gc-gguf-list" style="margin-top:12px;">Откройте вкладку — загрузка списка…</div>
       </div>

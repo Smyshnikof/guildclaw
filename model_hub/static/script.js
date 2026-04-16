@@ -338,22 +338,34 @@ function refreshGgufList() {
       return r.json();
     })
     .then((j) => {
-      if (!j || !j.models) return;
+      if (!j || !Array.isArray(j.models)) return;
+      const envCtx = typeof j.llama_ctx_env === "number" ? j.llama_ctx_env : "";
+      const effCtx = typeof j.llama_ctx_effective === "number" ? j.llama_ctx_effective : "";
+      const hasOv = j.llama_ctx_override != null && j.llama_ctx_override !== "";
       if (!j.models.length) {
         el.innerHTML =
           '<p style="color:var(--muted)">Нет .gguf — скачайте через пресеты или HuggingFace.</p>';
         return;
       }
       let h =
-        '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="text-align:left;border-bottom:1px solid #444"><th>Файл</th><th>MB</th><th></th></tr>';
+        '<p style="color:var(--muted);font-size:13px;margin:0 0 8px">Сейчас llama <code>-c</code>: <strong>' +
+        escapeHtml(String(effCtx)) +
+        "</strong>" +
+        (hasOv ? " (переопределение в <code>active.json</code>)" : " (из <code>LLAMA_CTX_SIZE</code> в env)") +
+        (envCtx !== "" ? " · env по умолчанию: " + escapeHtml(String(envCtx)) : "") +
+        "</p>";
+      h +=
+        '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="text-align:left;border-bottom:1px solid #444"><th>Файл</th><th>MB</th><th>Действия</th></tr>';
       for (const m of j.models) {
         const mb = (m.bytes / 1024 / 1024).toFixed(0);
         h += "<tr><td>" + escapeHtml(m.name) + (m.active ? " <strong>(активна)</strong>" : "") + "</td><td>" + mb + "</td><td>";
-        h += '<form method="post" action="/ui/activate" style="display:inline;margin-right:6px;">';
+        h += '<form method="post" action="/ui/activate" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;margin-right:6px;">';
         h += '<input type="hidden" name="path" value="' + escapeAttr(m.path) + '"/>';
         if (window.__GC_HUB) {
           h += '<input type="hidden" name="token" value="' + escapeAttr(window.__GC_HUB) + '"/>';
         }
+        h +=
+          '<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px">ctx<input name="llama_ctx_size" type="number" min="16000" max="524288" step="512" title="Пусто — только LLAMA_CTX_SIZE из env" style="width:88px;padding:4px 6px;border-radius:6px;border:1px solid #444;background:#111;color:#eee"/></label>';
         h +=
           '<button type="submit" class="btn btn-preset" style="padding:6px 10px">Активировать</button></form>';
         h += '<form method="post" action="/ui/delete" style="display:inline" onsubmit="return confirm(\'Удалить файл?\');">';
