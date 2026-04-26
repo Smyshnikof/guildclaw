@@ -561,7 +561,9 @@ oc_sync_control_ui_origins
 
 echo ""
 echo "Starting OpenClaw gateway..."
-"$BOT_CMD" gateway --auth token --token "$OPENCLAW_WEB_PASSWORD" &
+# HOME=/workspace: ~/.openclaw совпадает с $OPENCLAW_STATE_DIR (/workspace/.openclaw) без symlink
+# /root/.openclaw → … Иначе exec: «Refusing to traverse symlink in exec approvals path: /root/.openclaw».
+env HOME=/workspace "$BOT_CMD" gateway --auth token --token "$OPENCLAW_WEB_PASSWORD" &
 GATEWAY_PID=$!
 
 echo ""
