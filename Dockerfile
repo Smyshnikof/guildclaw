@@ -85,7 +85,8 @@ ENV LLAMA_SERVER_EXTRA_ARGS=""
 ENV LOCAL_LLAMA_VISION=1
 ENV OPENCLAW_LOCAL_MODEL_INPUT=""
 ENV OPENCLAW_COMPACTION_RESERVE_TOKENS_FLOOR=20000
-ENV OPENCLAW_COMPACTION_PROMPT_HEADROOM=12000
+ENV OPENCLAW_DISABLE_BONJOUR=1
+# Bonjour: см. https://docs.openclaw.ai/gateway/configuration-reference (discovery.mdns, plugins.entries.bonjour).
 
 # Первый запуск: скачать и активировать GGUF (пока нет валидного active.json). Отключить: BOOTSTRAP_GGUF=0
 ENV BOOTSTRAP_GGUF=1

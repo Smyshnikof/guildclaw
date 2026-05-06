@@ -109,6 +109,46 @@ def _effective_context_window(active_override: Optional[object]) -> int:
     return max(n, oc_min)
 
 
+def _bonjour_guard_applies() -> bool:
+    """По умолчанию отключаем bonjour/mDNS в образе (Docker/RunPod без multicast)."""
+    raw = (os.environ.get("OPENCLAW_DISABLE_BONJOUR") or "1").strip().lower()
+    return raw not in ("0", "false", "no", "off")
+
+
+def _apply_bonjour_guard(data: dict) -> bool:
+    """
+    Плагин bonjour (@homebridge/ciao) на VPS без mDNS даёт unhandled rejection
+    (CIAO ANNOUNCEMENT CANCELLED) и перезапуск шлюза. См. OpenClaw docs: discovery.mdns.mode off,
+    plugins.entries.bonjour.enabled false. OPENCLAW_DISABLE_BONJOUR=0 — не трогаем.
+    """
+    if not _bonjour_guard_applies():
+        return False
+    changed = False
+    plugins = data.setdefault("plugins", {})
+    entries = plugins.setdefault("entries", {})
+    bj = entries.get("bonjour")
+    if not isinstance(bj, dict):
+        bj = {}
+    else:
+        bj = dict(bj)
+    if bj.get("enabled") is not False:
+        bj["enabled"] = False
+        entries["bonjour"] = bj
+        changed = True
+    disc = data.setdefault("discovery", {})
+    mdns = disc.setdefault("mdns", {})
+    if mdns.get("mode") != "off":
+        mdns["mode"] = "off"
+        changed = True
+    if changed:
+        print(
+            "guildclaw-sync: bonjour/mDNS guard (plugins.entries.bonjour + discovery.mdns.mode=off). "
+            "LAN discovery: OPENCLAW_DISABLE_BONJOUR=0",
+            file=sys.stderr,
+        )
+    return changed
+
+
 def _llama_api_key() -> str:
     """LLAMA_API_KEY из Dockerfile часто changeme; тогда берём VLLM_API_KEY (совместимость RunPod)."""
     k = (os.environ.get("LLAMA_API_KEY") or "").strip()
@@ -209,6 +249,7 @@ def main() -> int:
     except (TypeError, ValueError):
         cw_eff = cw
     _ensure_compaction_reserve(data, cw_eff)
+    _apply_bonjour_guard(data)
 
     cfg_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     try:

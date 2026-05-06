@@ -66,6 +66,10 @@
     {
       "key": "WEB_SEARCH",
       "value": ""
+    },
+    {
+      "key": "OPENCLAW_DISABLE_BONJOUR",
+      "value": "1"
     }
   ]
 }
